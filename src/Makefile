@@ -15,9 +15,9 @@ default: $(PRODUCTS)
 SRCS = utility.cc main.cc #errors.cc
 
 # OBJS can deal with either .cc or .c files listed in SRCS
-OBJS = lex.yy.o $(patsubst %.cc, %.o, $(filter %.cc,$(SRCS))) $(patsubst %.c, %.o, $(filter %.c, $(SRCS)))
+OBJS = y.tab.o lex.yy.o $(patsubst %.cc, %.o, $(filter %.cc,$(SRCS))) $(patsubst %.c, %.o, $(filter %.c, $(SRCS)))
 
-JUNK =  *.o lex.yy.c *.core core $(COMPILER).purify purify.log 
+JUNK =  *.o lex.yy.c y.tab.c y.tab.h *.core core $(COMPILER).purify purify.log 
 
 # Define the tools we are going to use
 CC= g++
@@ -50,14 +50,14 @@ LIBS = -lc -lm -ll
 .yy.o: $*.yy.c
 	$(CC) $(CFLAGS) -c -o $@ $*.cc
 
-lex.yy.c: scanner.l 
+lex.yy.c: scanner.l parser.y y.tab.h
 	$(LEX) $(LEXFLAGS) scanner.l
 
-#y.tab.o: y.tab.c
-#	$(CC) $(CFLAGS) -c -o y.tab.o y.tab.c
+y.tab.o: y.tab.c
+	$(CC) $(CFLAGS) -c -o y.tab.o y.tab.c
 
-#y.tab.h y.tab.c: parser.y
-#	$(YACC) $(YACCFLAGS) parser.y
+y.tab.h y.tab.c: parser.y
+	$(YACC) $(YACCFLAGS) parser.y
 .cc.o: $*.cc
 	$(CC) $(CFLAGS) -c -o $@ $*.cc
 

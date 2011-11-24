@@ -8,56 +8,24 @@
 #include <stdio.h>
 #include "utility.h"
 //#include "errors.h"
-#include "scanner.h"
-#include "location.h"
+#include "parser.h"
 
-/* Function: PrintOneToken()
- * Usage: PrintOneToken(T_Double, "3.5", val, loc);
- * -----------------------------------------------
- * We supply this function to print information about the tokens returned
- * by the lexer as part of pp1.  Do not modifiy it.
- */
-static void PrintOneToken(TokenType token, const char *text, YYSTYPE value,
-                          yyltype loc)
+void yyerror(char* msg)
 {
-  char buffer[] = {'\'', token, '\'', '\0'};
-  const char *name = token >= T_Void ? gTokenNames[token - T_Void] : buffer;
-  
-  printf("%-12s line %d cols %d-%d is %s ", text,
-	   loc.first_line, loc.first_column, loc.last_column, name);
-  
-  switch(token) {
-    case T_IntConstant:     
-      printf("(value = %d)\n", value.integerConstant); break;
-    case T_StringConstant:  
-      printf("(value = %s)\n", value.stringConstant); break;
-    case T_Name:
-	if (strcmp(text, value.identifier)) {
-	  printf("(truncated to %s)\n", value.identifier);
-	  break;
-	}
-    default:
-      printf("\n"); break;
-  }
 }
-
 
 /* Function: main()
  * ----------------
  * Entry point to the entire program.  We parse the command line and turn
  * on any debugging flags requested by the user when invoking the program.
- * The UNIX popen command is used to first invoke the preprocessor to
- * filter the input and we feed that result into the scanner as input.
- * (This is somewhat unusual -- ordinarily lex would just read directly
- * from the usual stdin, without the calls to popen/yyrestart)
  * InitScanner() is used to set up the scanner.
- * Once everything is set up, we loop, calling yylex() to get each token
- * and print out its info. We continue until all input has been scanned.
+ * InitParser() is used to set up the parser. The call to yyparse() will
+ * attempt to parse a complete program from the input. 
  */
 int main(int argc, char *argv[])
 {
-  //  ParseCommandLine(argc, argv);
-	if (argc == 1)
+   // ParseCommandLine(argc, argv);
+  	if (argc == 1)
 	{
 		printf("No input File. \n ./dcc <file_name>\n");
 		return 1;
@@ -72,14 +40,11 @@ int main(int argc, char *argv[])
 	yyrestart(inputFile);
     //FILE *filtered = popen("./dpp", "r"); // start up the preprocessor
     //yyrestart(filtered); // tell lex to read from output of preprocessor
-  
+
     InitScanner();
-    TokenType token;
-    while ((token = (TokenType)yylex()) != 0) 
-        PrintOneToken(token, yytext, yylval, yylloc);
-	fclose(inputFile);
-    //pclose(filtered);
-	return 0;
+    InitParser();
+    yyparse();
     //return (ReportError::NumErrors() == 0? 0 : -1);
+	return 0;
 }
 
