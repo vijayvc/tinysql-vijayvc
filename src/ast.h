@@ -1,7 +1,7 @@
 #include <iostream>
 #include "list.h"
 #include <string.h>
-
+#include "StorageWrapper.h"
 using namespace std;
 
 class Constant;
@@ -30,12 +30,13 @@ public:
 		}
 };
 
+#define TUPLE List<Constant*>
 class Statement: public Node
 {
 protected:
 public:
 	Statement() { }
-	virtual List<List<Constant*>*>* Execute() { 
+	virtual List<TUPLE*>* Execute() { 
 		return NULL;
 	}
 	virtual void Print() { }
@@ -131,6 +132,7 @@ public:
 	CreateTableStmt(EntityName* n, List<Attribute*>* attrs):
 		table_name(n), attrList(attrs)
 	{}
+	virtual List<TUPLE*>* Execute();
 };
 
 class DropTableStmt: public Statement
@@ -140,6 +142,7 @@ protected:
 public:
 	DropTableStmt(EntityName* n):table_name(n)
 	{}
+	virtual List<TUPLE*>* Execute();
 };
 
 class SelectStmt: public Statement
@@ -191,7 +194,9 @@ public:
 	EntityName(const char* n) { 
 		name = strdup(n);
 	}
-
+	const char* GetName() { 
+		return name;
+	}
 };
 
 class ColumnName: public Node
@@ -212,6 +217,9 @@ public:
 	Type(const char* t)
 	{
 		typeName = strdup(t);
+	}
+	const char* GetName() { 
+		return typeName;
 	}
 };
 
@@ -241,6 +249,12 @@ protected:
 	Type*		type;
 public:
 	Attribute(EntityName* e, Type* t):name(e),type(t) { }
+	const char* GetFieldName() {
+		return name->GetName();
+	}
+	const char* GetTypeName() {
+		return type->GetName();
+	}
 };
 
 class ColumnAccess: public Expr

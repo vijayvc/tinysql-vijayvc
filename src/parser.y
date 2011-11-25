@@ -227,7 +227,7 @@ Comp_Op
  * %% markers which delimit the Rules section.
 	 
  */
-Statement			: Stmt					{ $1->Print(); };
+Statement			: Stmt					{ $1->Execute(); };
 
 Stmt				: Create_Table_Stmt		{ $$ = $1; }
 					| Drop_Table_Stmt		{ $$ = $1; }

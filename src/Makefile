@@ -12,10 +12,10 @@ PRODUCTS = $(COMPILER)
 default: $(PRODUCTS)
 
 # Set up the list of source and object files
-SRCS = utility.cc main.cc #errors.cc
+SRCS = utility.cc ast.cc StorageWrapper.cc main.cc #errors.cc
 
 # OBJS can deal with either .cc or .c files listed in SRCS
-OBJS = y.tab.o lex.yy.o $(patsubst %.cc, %.o, $(filter %.cc,$(SRCS))) $(patsubst %.c, %.o, $(filter %.c, $(SRCS)))
+OBJS = y.tab.o lex.yy.o StorageManager.o $(patsubst %.cc, %.o, $(filter %.cc,$(SRCS))) $(patsubst %.c, %.o, $(filter %.c, $(SRCS)))
 
 JUNK =  *.o lex.yy.c y.tab.c y.tab.h *.core core $(COMPILER).purify purify.log 
 
@@ -60,6 +60,11 @@ y.tab.h y.tab.c: parser.y
 	$(YACC) $(YACCFLAGS) parser.y
 .cc.o: $*.cc
 	$(CC) $(CFLAGS) -c -o $@ $*.cc
+
+#StorageManager.o: Block.h Disk.h Field.h MainMemory.h Relation.h Schema.h SchemaManager.h Tuple.h Config.h
+#	g++ -c StorageManager.cpp
+StorageManager.o: 
+	$(CC) $(CFLAGS) -c -o $@ StorageManager/StorageManager.cpp
 
 # rules to build compiler (dcc)
 

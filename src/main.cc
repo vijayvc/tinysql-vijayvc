@@ -9,6 +9,7 @@
 #include "utility.h"
 //#include "errors.h"
 #include "parser.h"
+#include "StorageWrapper.h"
 
 void yyerror(char* msg)
 {
@@ -24,6 +25,7 @@ void yyerror(char* msg)
  */
 int main(int argc, char *argv[])
 {
+	StorageManagerWrapper::Initialize();
    // ParseCommandLine(argc, argv);
   	if (argc == 1)
 	{
