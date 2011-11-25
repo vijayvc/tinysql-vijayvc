@@ -109,7 +109,7 @@ literal		\"[^\"\n]*\"
 					return T_IntConstant;
 				}
 {name}			{
-					printf("Name: %s\n", yytext); 
+					//printf("Name: %s\n", yytext); 
 					strcpy(yylval.identifier, yytext);
 					return T_Name;
 				}
