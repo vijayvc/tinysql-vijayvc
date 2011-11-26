@@ -1,11 +1,12 @@
 #ifndef __STORAGE_WRAPPER__
 #define __STORAGE_WRAPPER__
 
-#include<iterator>
-#include<cstdlib>
-#include<ctime>
-#include<string>
-#include<iostream>
+#include "list.h"
+#include <cstdlib>
+#include <ctime>
+#include <string>
+#include <iostream>
+#include <iterator>
 #include "StorageManager/Block.h"
 #include "StorageManager/Config.h"
 #include "StorageManager/Disk.h"
@@ -16,6 +17,9 @@
 #include "StorageManager/SchemaManager.h"
 #include "StorageManager/Tuple.h"
 
+#define TUPLE List<Constant*>
+class Constant;
+
 class StorageManagerWrapper
 {
 protected:
@@ -23,9 +27,17 @@ protected:
 	SchemaManager 	schema_manager;
 	Disk 			disk;
 	void _CreateTable(string table_name,
-			const vector<string> & field_names, 
+			const vector<string> &field_names, 
 			const vector <enum FIELD_TYPE> & field_types);
 	void _DropTable(string relation_name);
+    void _InsertTuple(const string table_name,
+			const List<string> *column_name,
+			const List<TUPLE*> *column_value);
+	int OutputBufferIndex()
+	{
+		//Assert(mem->getMemorySize());
+		return mem.getMemorySize()-1;
+	}
 	StorageManagerWrapper();
 
 	static StorageManagerWrapper* instance;
@@ -44,11 +56,20 @@ public:
 			const vector<string> & field_names, 
 			const vector <enum FIELD_TYPE> & field_types)
 	{
-		instance->_CreateTable(table_name, field_names, field_types);
+		if(instance)
+			instance->_CreateTable(table_name, field_names, field_types);
 	}
 	static void DropTable(string relation_name)
 	{
-		instance->_DropTable(relation_name);
+		if(instance)
+			instance->_DropTable(relation_name);
+	}
+	static void InsertTuple (const string table_name,
+			                 const List<string> *column_name,
+							 const List<TUPLE*> *column_value)
+	{
+		if(instance)
+			instance->_InsertTuple(table_name,column_name,column_value);
 	}
 };
 

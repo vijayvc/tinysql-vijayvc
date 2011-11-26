@@ -1,7 +1,6 @@
 #include <iostream>
 #include "list.h"
 #include <string.h>
-#include "StorageWrapper.h"
 using namespace std;
 
 class Constant;
@@ -54,7 +53,8 @@ class Constant: public Expr
 public:
 	Constant() { }
 	virtual ConstType GetType() = 0;
-
+	virtual string GetStringValue() { return NULL; }
+	virtual int GetIntValue() { return 0; }
 };
 
 class IntConstant: public Constant
@@ -64,6 +64,7 @@ protected:
 public:
 	IntConstant(int v): val(v) {}
 	virtual ConstType GetType() { return eInt; }
+	virtual int GetIntValue() { return val; }
 };
 
 class StringConstant: public Constant
@@ -73,6 +74,7 @@ protected:
 public:
 	StringConstant(string v): val(v) {}
 	virtual ConstType GetType() { return eString; }
+	virtual string GetStringValue() { return val; }
 };
 
 class NullConstant: public Constant
@@ -82,7 +84,6 @@ public:
 	NullConstant(){}
 	virtual ConstType GetType() { return eNull; }
 };
-
 
 class Operator: public Node
 {
@@ -168,6 +169,7 @@ protected:
 	List<EntityName*>* columns;
 	InsertValues* values;
 public:
+	List<TUPLE *> * Execute();
 	InsertStmt(EntityName* n, List<EntityName*>* c, 
 				InsertValues* v):
 		table_name(n),columns(c), values(v)
@@ -226,10 +228,10 @@ public:
 class InsertValues
 {
 protected:
-	List<Constant*>* 	valueList;
+	TUPLE* 	valueList;
 	SelectStmt*		select_stmt;
 public:
-	InsertValues(List<Constant*>* v)
+	InsertValues(TUPLE * v)
 	{
 		valueList = v;
 		select_stmt = NULL;
@@ -239,6 +241,22 @@ public:
 		valueList = NULL;
 		select_stmt = dynamic_cast<SelectStmt*>(s);
 		Assert(select_stmt);
+	}
+	List<TUPLE*>* GetValueList()
+	{
+		if(valueList)
+		{
+			List<TUPLE*>* vl = new List<TUPLE*>();
+			vl->Append(valueList);
+			return vl;
+		}
+		else if(select_stmt)
+		{
+			return select_stmt->Execute();
+		}
+		else
+			Assert(0);
+		return NULL;
 	}
 };
 
