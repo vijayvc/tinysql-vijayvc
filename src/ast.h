@@ -10,6 +10,8 @@ class Attribute;
 class InsertValues;
 class SelectStmt;
 
+#define PRINT_1(indentLevel, arg1) { printf("%*s", indentLevel*2,""); cout << arg1 << endl; }
+#define PRINT_2(indentLevel, arg1, arg2) { printf("%*s", indentLevel*2,""); cout << arg1 << arg2 << endl; }
 
 enum ConstType
 {
@@ -23,10 +25,8 @@ class Node
 {
 protected:
 public:
-		Node() { }
-		virtual void Print()
-		{
-		}
+	Node() { }
+	virtual void Print(int indentLevel) = 0;
 };
 
 #define TUPLE List<Constant*>
@@ -38,14 +38,15 @@ public:
 	virtual List<TUPLE*>* Execute() { 
 		return NULL;
 	}
-	virtual void Print() { }
+	virtual void Print(int indentLevel) = 0;
 };
 
 class Expr : public Node 
 {
-	protected:
-	public:
-		Expr() {}
+protected:
+public:
+	Expr() {}
+	virtual void Print(int indentLevel) = 0; 
 };
 
 class Constant: public Expr
@@ -53,6 +54,7 @@ class Constant: public Expr
 public:
 	Constant() { }
 	virtual ConstType GetType() = 0;
+	virtual void Print(int indentLevel) = 0; 
 	virtual string GetStringValue() { return NULL; }
 	virtual int GetIntValue() { return 0; }
 };
@@ -64,6 +66,9 @@ protected:
 public:
 	IntConstant(int v): val(v) {}
 	virtual ConstType GetType() { return eInt; }
+	virtual void Print(int indentLevel) { 
+		PRINT_2(indentLevel, "IntConstant: ", val);
+	}
 	virtual int GetIntValue() { return val; }
 };
 
@@ -74,6 +79,9 @@ protected:
 public:
 	StringConstant(string v): val(v) {}
 	virtual ConstType GetType() { return eString; }
+	virtual void Print(int indentLevel) { 
+		PRINT_2(indentLevel, "StringConstant: ", val);
+	}
 	virtual string GetStringValue() { return val; }
 };
 
@@ -83,6 +91,9 @@ protected:
 public:
 	NullConstant(){}
 	virtual ConstType GetType() { return eNull; }
+	virtual void Print(int indentLevel) { 
+		PRINT_1(indentLevel, "NullConstant");
+	}
 };
 
 class Operator: public Node
@@ -91,6 +102,9 @@ protected:
 	char tok;
 public:
 	Operator(char c):tok(c) {}
+	virtual void Print(int indentLevel) { 
+		PRINT_2(indentLevel, "Operator: ", tok);
+	}
 };
 
 class CompoundExpr: public Expr
@@ -101,6 +115,13 @@ protected:
 	Operator* op;
 public:
 	CompoundExpr(Expr* l, Expr* r, Operator* o):left(l),right(r),op(o) { }
+	virtual void Print(int indentLevel)
+	{
+		op->Print(indentLevel+1);
+		if(left)
+			left->Print(indentLevel+1);
+		right->Print(indentLevel+1);
+	}
 };
 
 class ArithmeticExpr: public CompoundExpr
@@ -108,6 +129,10 @@ class ArithmeticExpr: public CompoundExpr
 protected:
 public:
 	ArithmeticExpr(Expr* l, Expr* r, Operator* o):CompoundExpr(l,r,o) {}
+	virtual void Print(int indentLevel) { 
+		PRINT_1(indentLevel, "Arithmetic Expr:");
+		CompoundExpr::Print(indentLevel+1);
+	}
 };
 
 class LogicalExpr: public CompoundExpr
@@ -115,6 +140,10 @@ class LogicalExpr: public CompoundExpr
 protected:
 public:
 	LogicalExpr(Expr* l, Expr* r, Operator* o):CompoundExpr(l,r,o) {}
+	virtual void Print(int indentLevel) { 
+		PRINT_1(indentLevel, "Logical Expr:");
+		CompoundExpr::Print(indentLevel+1);
+	}
 };
 
 class RelationalExpr: public CompoundExpr
@@ -122,6 +151,10 @@ class RelationalExpr: public CompoundExpr
 protected:
 public:
 	RelationalExpr(Expr* l, Expr* r, Operator* o):CompoundExpr(l,r,o) {}
+	virtual void Print(int indentLevel) { 
+		PRINT_1(indentLevel, "Relational Expr:");
+		CompoundExpr::Print(indentLevel+1);
+	}
 };
 
 class CreateTableStmt: public Statement
@@ -132,7 +165,10 @@ protected:
 public:
 	CreateTableStmt(EntityName* n, List<Attribute*>* attrs):
 		table_name(n), attrList(attrs)
-	{}
+	{
+		Assert(attrList);
+	}
+	virtual void Print(int indentLevel); 
 	virtual List<TUPLE*>* Execute();
 };
 
@@ -143,6 +179,7 @@ protected:
 public:
 	DropTableStmt(EntityName* n):table_name(n)
 	{}
+	virtual void Print(int indentLevel); 
 	virtual List<TUPLE*>* Execute();
 };
 
@@ -160,6 +197,7 @@ public:
 		table_names(tables), columns(c), distinct(isDistinct),
 		condition(where), orderBy(o)
 	{}
+	virtual void Print(int indentLevel); 
 };
 
 class InsertStmt: public Statement
@@ -174,6 +212,7 @@ public:
 				InsertValues* v):
 		table_name(n),columns(c), values(v)
 	{}
+	virtual void Print(int indentLevel); 
 };
 
 class DeleteStmt: public Statement
@@ -186,6 +225,7 @@ public:
 		table_name(n), condition(c)
 	{
 	}
+	virtual void Print(int indentLevel);
 };
 
 class EntityName: public Node
@@ -199,6 +239,9 @@ public:
 	const char* GetName() { 
 		return name;
 	}
+	virtual void Print(int indentLevel) { 
+		PRINT_2(indentLevel, "Name: ", name);
+	}
 };
 
 class ColumnName: public Node
@@ -209,9 +252,20 @@ protected:
 public:
 	ColumnName(EntityName* t_name, EntityName* f_name)
 		:table(t_name),column(f_name) { }
+	virtual void Print(int indentLevel) { 
+		PRINT_1(indentLevel, "ColumnName: ");
+		indentLevel += 1;
+		if(table)
+		{
+			PRINT_1(indentLevel, "TableName: ");
+			table->Print(indentLevel+1);
+		}
+		PRINT_1(indentLevel, "FieldName: ");
+		column->Print(indentLevel+1);
+	}
 };
 
-class Type
+class Type: public Node
 {
 protected:
 	char* typeName;
@@ -222,6 +276,9 @@ public:
 	}
 	const char* GetName() { 
 		return typeName;
+	}
+	virtual void Print(int indentLevel) { 
+		PRINT_2(indentLevel, "Type: ", typeName);
 	}
 };
 
@@ -241,6 +298,18 @@ public:
 		valueList = NULL;
 		select_stmt = dynamic_cast<SelectStmt*>(s);
 		Assert(select_stmt);
+	}
+	virtual void Print(int indentLevel) { 
+		PRINT_1(indentLevel, "Values:");
+		if(valueList)
+		{
+			for(int i=0; i<valueList->NumElements(); i++)
+				valueList->Nth(i)->Print(indentLevel+1);
+		}
+		else
+		{
+			select_stmt->Print(indentLevel+1);
+		}
 	}
 	List<TUPLE*>* GetValueList()
 	{
@@ -267,6 +336,11 @@ protected:
 	Type*		type;
 public:
 	Attribute(EntityName* e, Type* t):name(e),type(t) { }
+	virtual void Print(int indentLevel) { 
+		PRINT_1(indentLevel, "Attribute:");
+		name->Print(indentLevel+1);
+		type->Print(indentLevel+1);
+	}
 	const char* GetFieldName() {
 		return name->GetName();
 	}
@@ -281,4 +355,8 @@ protected:
 	ColumnName* column;
 public:
 	ColumnAccess(ColumnName* n):column(n) { }
+	virtual void Print(int indentLevel) { 
+			PRINT_1(indentLevel, "ColumnAccess:");
+			column->Print(indentLevel+1);
+	}
 };

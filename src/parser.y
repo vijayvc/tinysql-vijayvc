@@ -1,11 +1,6 @@
 /* File: parser.y
  * --------------
  * Yacc input file to generate the parser for the compiler.
- *
- * pp2: your job is to write a parser that will construct the parse tree
- *      and if no parse errors were found, print it.  The parser should 
- *      accept the language as described in specification, and as augmented 
- *      in the pp2 handout.
  */
 
 %{
@@ -18,7 +13,6 @@
  */
 #include "scanner.h" // for yylex
 #include "parser.h"
-//#include "errors.h"
 
 #define MAX_NAME_LEN 1024
 void yyerror(char *msg); // standard error-handling routine
@@ -34,61 +28,29 @@ void yyerror(char *msg); // standard error-handling routine
  * Here we define the type of the yylval global variable that is used by
  * the scanner to store attibute information about the token just scanned
  * and thus communicate that information to the parser. 
- *
- * pp2: You will need to add new fields to this union as you add different 
- *      attributes to your non-terminal symbols.
  */
+
 %union {
 	EntityName* entityName;
 	ColumnName* columnName;
-	//Attribute*	attribute;
 	Type*	type;
 	Statement*	stmt;
-	//CreateTableStmt* createTable;
-	//DropTableStmt* 	dropTable;
-	//SelectStmt*		selectStmt;
-	//DeleteStmt*		deleteStmt;
-	//InsertStmt*		insertStmt;
+	List<Statement*>* stmtList;
+
 	Operator*		opera;
 	Constant*		constant;
 	Expr*			expr;
 	bool			distinct;
 	char*			name;
-	//List<EntityName*>*	tableList;
 	List<ColumnName*>*	columnList;	
 	List<EntityName*>*	entityList;
 	InsertValues*		insertValues;
 	List<Attribute*>*	attrList;
 	List<Constant*>*	valueList;
 	int					intConstant;
-    char 				identifier[MAX_NAME_LEN]; // +1 for terminating null
+    char 				identifier[MAX_NAME_LEN]; 
     char *stringConstant;
-	/*
-    int integerConstant;
-    bool boolConstant;
-    double doubleConstant;
-    Decl *decl;
-    List<Decl*> *declList;
-    VarDecl* varDecl;
-    List<VarDecl*> *varDeclList;
-
-    Type* type;
-    List<Type*> *typeList;
-    NamedType* namedType;
-    List<NamedType*> *namedTypeList;
-
-    Expr* expr;
-    List<Expr*> *exprList;
-    LValue* lvalue;
-    Stmt* stmt;
-    List<Stmt*> *stmtList;
-
-    CaseStmt*  caseStmt;
-    DefaultStmt* defStmt;
-    List<CaseStmt*>* caseStmtList;
-	*/
 }
-
 
 /* Tokens
  * ------
@@ -105,41 +67,15 @@ void yyerror(char *msg); // standard error-handling routine
 %token   <identifier> T_Name
 %token   <name> T_StringConstant
 %token	 <intConstant> T_IntConstant
-/*
-%token   T_Void T_Bool T_Int T_Double T_String T_Class 
-%token   T_LessEqual T_GreaterEqual T_Equal T_NotEqual T_Dims
-%token   T_And T_Or T_Null T_Extends T_This T_Interface T_Implements
-%token   T_While T_For T_If T_Else T_Return T_Break
-%token   T_New T_NewArray T_Print T_ReadInteger T_ReadLine
-%token	 T_Increment T_Decrement
-%token   T_Switch T_Case T_Default
-*/
-
-/*
-%token   <identifier> T_Identifier
-%token   <stringConstant> T_StringConstant 
-%token   <integerConstant> T_IntConstant
-%token   <doubleConstant> T_DoubleConstant
-%token   <boolConstant> T_BoolConstant
-*/
-/*%token	 <operator> Comp_Op*/
 
 /* Non-terminal types
- * ------------------
- * In order for yacc to assign/access the correct field of $$, $1, we
- * must to declare which field is appropriate for the non-terminal.
- * As an example, this first type declaration establishes that the DeclList
- * non-terminal uses the field named "declList" in the yylval union. This
- * means that when we are setting $$ for a reduction for DeclList ore reading
- * $n which corresponds to a DeclList nonterminal we are accessing the field
- * of the union named "declList" which is of type List<Decl*>.
- * pp2: You'll need to add many of these of your own.
  */
 
 %type <entityName>	Entity_Name
 %type <columnName>	Column_Name OrderBy_Clause
 /*%type <attribute>	Attribute*/
 %type <stmt> Statement Stmt Create_Table_Stmt Drop_Table_Stmt Select_Stmt Delete_Stmt Insert_Stmt
+%type <stmtList> StatementList
 %type <type> Data_Type
 
 %type <distinct>   Opt_Distinct
@@ -150,75 +86,20 @@ void yyerror(char *msg); // standard error-handling routine
 %type <expr>	   Search_Condition Boolean Expression Where_Clause 
 %type <constant>   Value 
 %type <valueList>  Value_List
-
 %type <insertValues> Insert_Tuples
 
-/*
-Where_Clause
-OrderBy_Clause
-Select_List
-Select_Sublist
-Attribute_List
-Value
-Value_List
-Search_Condition
-Expression
-Boolean
-Comp_Op
-*/
-/*
-%type <decl>      Decl FunctionDecl ClassDecl InterfaceDecl Prototype Field
-%type <declList>  DeclPlus FieldStar PrototypeStar
-
-%type <varDecl>	    Variable VariableDecl 
-%type <varDeclList> VariableList VariableDeclStar Formals 
-
-%type <expr>	  Expr Call OptExpr Constant PostFix
-%type <lvalue>	  LValue
-%type <exprList>  ExprList Actuals
-
-%type <type>	  Type 
-%type <namedType>  ExtendsIdent
-%type <namedTypeList>  ImplementsIdentList ImplementsIdentOpt 
-
-%type <stmt>	  Stmt IfStmt ForStmt WhileStmt PrintStmt ReturnStmt BreakStmt SwitchStmt StmtBlock 
-%type <stmtList>  StmtStar StmtPlus
-
-%type <caseStmt>  CaseStmt
-%type <caseStmtList> CasePlus
-%type <defStmt>   OptDefault
-*/
-
-%left ':'
-%left ';' '{' '}'
 %left ','
-%left '='
 %left T_Or
 %left T_And
-%left T_NotEqual
 %left T_Equal
-%left T_GreaterEqual
-%left '>'
-%left T_LessEqual
-%left '<'
-/*%left '-'
-  */
+%left T_Greater 
+%left T_Less
 %left '-' '+'
-%left '*' '/' '%'
-%right NEG
-%right '!'
+%left '*' '/'
 %right T_Not
-/*
-%left PREDEC
-%left PREINC
-*/
-%left POSTFIX
 %left '(' ')'
 %left '[' ']'
 %left '.'
-
-%nonassoc LOWER_THAN_ELSE
-%nonassoc T_Else 
 
 %%
 /* Rules
@@ -227,28 +108,33 @@ Comp_Op
  * %% markers which delimit the Rules section.
 	 
  */
-Statement			: Stmt					{ $1->Execute(); };
+StatementList		: Statement StatementList			{ /*$2->Append($1); $$ = $2; */} 
+					| Statement							{ /*$$ = new List<Statement*>; $$->Append($1);*/ }
 
-Stmt				: Create_Table_Stmt		{ $$ = $1; }
-					| Drop_Table_Stmt		{ $$ = $1; }
-					| Select_Stmt			{ $$ = $1; }
-					| Delete_Stmt			{ $$ = $1; }
-					| Insert_Stmt			{ $$ = $1; };
+Statement			: Stmt								{ 
+						  									//$1->Print(0); 
+						  									$1->Execute(); 
+					  									}
 
-Entity_Name			: T_Name				{ $$ = new EntityName($1); }
-Column_Name			: Entity_Name '.' Entity_Name	 { $$ = new ColumnName($3, $1); }
-					| Entity_Name			{ $$ = new ColumnName($1, NULL); }
+Stmt				: Create_Table_Stmt	T_LineEnd		{ $$ = $1; }
+					| Drop_Table_Stmt	T_LineEnd		{ $$ = $1; }
+					| Select_Stmt		T_LineEnd		{ $$ = $1; }
+					| Delete_Stmt		T_LineEnd		{ $$ = $1; }
+					| Insert_Stmt		T_LineEnd		{ $$ = $1; };
 
-Create_Table_Stmt	: T_Create T_Table Entity_Name '(' Attribute_List ')'	
+Entity_Name			: T_Name							{ $$ = new EntityName($1); }
+Column_Name			: Entity_Name '.' Entity_Name	 	{ $$ = new ColumnName($1, $3);  }
+					| Entity_Name						{ $$ = new ColumnName(NULL, $1); }
+
+Create_Table_Stmt	: T_Create T_Table Entity_Name '(' Attribute_List ')'
 													{
 														$$ = new CreateTableStmt($3, $5);
 													}
 Attribute_List		: Entity_Name Data_Type			{ 
 						  								$$ = new List<Attribute*>;  
-														Attribute* temp = new Attribute($1, $2); 
-														$$->Append(temp);
+														$$->Append(new Attribute($1, $2));
 					  								}
-					| Entity_Name Data_Type ',' Attribute_List	{ $4->Append(new Attribute($1, $2)); $$ = $4; }
+					| Attribute_List ',' Entity_Name Data_Type 	{ ($$=$1)->Append(new Attribute($3, $4)); }
 
 Data_Type			: T_Int					{ $$ = new Type("int"); }
 					| T_String				{ $$ = new Type("string"); }
@@ -272,14 +158,15 @@ OrderBy_Clause		: T_Order T_By Column_Name		{ $$ =	$3; }
 
 Select_List			: '*'							{ 
 						  								$$ = new List<ColumnName*>; 
-						  								$$->Append(new ColumnName(new EntityName("*"), NULL));
+						  								$$->Append(new ColumnName(NULL, new EntityName("*")));
 					  								}
 					| Select_Sublist				{ $$ = $1; }
 
 Select_Sublist 		: Column_Name					 { $$ = new List<ColumnName*>; $$->Append($1); } 
-					| Column_Name ',' Select_Sublist { $3->Append($1); $$ = $3; } 
+					| Select_Sublist ',' Column_Name { ($$=$1)->Append($3); } 
+
 Table_List 			: Entity_Name					 { $$ = new List<EntityName*>; $$->Append($1); } 
-					| Entity_Name ',' Table_List	 { $3->Append($1); $$ = $3; }
+					| Table_List ',' Entity_Name 	 { ($$=$1)->Append($3); }
 
 Delete_Stmt 		: T_Delete T_From Entity_Name Where_Clause 
 													{
@@ -294,20 +181,19 @@ Insert_Tuples 		: T_Values '(' Value_List ')'	{ $$ = new InsertValues($3); }
 					| Select_Stmt					{ $$ = new InsertValues($1); }
 
 Column_List 		: Entity_Name					{ $$ = new List<EntityName*>; $$->Append($1); } 
-					| Entity_Name ',' Column_List { $3->Append($1); $$ = $3; }
+					| Column_List ',' Entity_Name   { ($$=$1)->Append($3); }
 
 Value 				: T_StringConstant 				{ $$ = new StringConstant($1); }
 					| T_IntConstant					{ $$ = new IntConstant($1); } 
 					| T_Null						{ $$ = new NullConstant(); }
 
 Value_List 			: Value							{ $$ = new List<Constant*>; $$->Append($1); } 
-					| Value ',' Value_List			{ $3->Append($1); $$ = $3; }
+					| Value_List ',' Value 			{ ($$=$1)->Append($3); }
 
 Search_Condition 	: Boolean	 					{ $$ = $1; }
 
 Expression			: Column_Name							{ $$ = new ColumnAccess($1); }
-					| T_StringConstant						{ $$ = new StringConstant($1); }
-					| T_IntConstant							{ $$ = new IntConstant($1); }
+					| Value									{ $$ = $1; }
 					| '(' Expression ')'					{ $$ = $2; }
 					| Expression '+' Expression				{ $$ = new ArithmeticExpr($1, $3, new Operator('+')); }
 					| Expression '-' Expression				{ $$ = new ArithmeticExpr($1, $3, new Operator('-')); }
@@ -320,9 +206,9 @@ Boolean				: Expression Comp_Op Expression			{ $$ = new RelationalExpr($1, $3, $
 					| Boolean T_And Boolean					{ $$ = new LogicalExpr($1, $3, new Operator('&')); }
 					| T_Not Boolean							{ $$ = new LogicalExpr(NULL, $2, new Operator('!')); }
 
-Comp_Op				: '<'									{ $$ = new Operator('<'); }
-					| '>'									{ $$ = new Operator('>'); }
-					| '='									{ $$ = new Operator('='); }
+Comp_Op				: T_Less								{ $$ = new Operator('<'); }
+					| T_Greater								{ $$ = new Operator('>'); }
+					| T_Equal								{ $$ = new Operator('='); }
 
 %%
 

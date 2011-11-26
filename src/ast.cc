@@ -1,6 +1,85 @@
 #include "ast.h"
 #include "StorageWrapper.h"
 
+void CreateTableStmt::Print(int indentLevel)
+{
+	PRINT_1(indentLevel, "CreateTableStmt:");
+	indentLevel += 1;
+
+	PRINT_1(indentLevel, "TableName: ");
+	table_name->Print(indentLevel+1);
+
+	PRINT_1(indentLevel, "Attributes: ");
+	
+	for (int i = 0; i < attrList->NumElements(); i++) 
+		attrList->Nth(i)->Print(indentLevel+1);
+}
+
+void DropTableStmt::Print(int indentLevel)
+{ 
+	PRINT_1(indentLevel, "DropTableStmt:");
+	indentLevel += 1;
+
+	PRINT_1(indentLevel, "TableName: ");
+	table_name->Print(indentLevel+1);
+}
+
+void SelectStmt::Print(int indentLevel) 
+{ 
+	PRINT_1(indentLevel, "SelectStmt:");
+	indentLevel += 1;
+
+	PRINT_1(indentLevel, "TableNames:");
+	for(int i=0; i<table_names->NumElements(); i++)
+		table_names->Nth(i)->Print(indentLevel+1);
+
+	PRINT_1(indentLevel, "Columns:");
+	for(int i=0; i<columns->NumElements(); i++)
+		columns->Nth(i)->Print(indentLevel+1);
+
+	PRINT_2(indentLevel, "Distinct: ", distinct);
+
+	if(condition)
+	{
+		PRINT_1(indentLevel, "Condition:");
+		condition->Print(indentLevel+1);
+	}
+
+	if(orderBy)
+	{
+		PRINT_1(indentLevel, "OrderBy:");
+		orderBy->Print(indentLevel+1);
+	}
+}
+
+void DeleteStmt::Print(int indentLevel) 
+{ 
+	PRINT_1(indentLevel, "DeleteStmt:");
+	indentLevel += 1;
+
+	PRINT_1(indentLevel, "TableName:");
+	table_name->Print(indentLevel+1);
+
+	if(condition)
+	{
+		PRINT_1(indentLevel, "Condition:");
+		condition->Print(indentLevel+1);
+	}
+}
+
+void InsertStmt::Print(int indentLevel)
+ { 
+	PRINT_1(indentLevel, "InsertStmt:");
+	PRINT_1(indentLevel+1, "TableName:");
+	table_name->Print(indentLevel+2);
+
+	PRINT_1(indentLevel+1, "Columns:");
+	for(int i=0; i<columns->NumElements(); i++)
+		columns->Nth(i)->Print(indentLevel+2);
+
+	values->Print(indentLevel+1);
+}
+
 List<TUPLE*>* CreateTableStmt::Execute()
 { 
 	vector<enum FIELD_TYPE> field_types;
