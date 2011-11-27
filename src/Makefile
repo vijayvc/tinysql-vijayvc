@@ -12,7 +12,7 @@ PRODUCTS = $(COMPILER)
 default: $(PRODUCTS)
 
 # Set up the list of source and object files
-SRCS = utility.cc ast.cc StorageWrapper.cc main.cc #errors.cc
+SRCS = utility.cc ast.cc StorageWrapper.cc LogicalQueryPlan.cc main.cc #errors.cc
 
 # OBJS can deal with either .cc or .c files listed in SRCS
 OBJS = y.tab.o lex.yy.o StorageManager.o $(patsubst %.cc, %.o, $(filter %.cc,$(SRCS))) $(patsubst %.c, %.o, $(filter %.c, $(SRCS)))

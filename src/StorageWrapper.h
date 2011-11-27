@@ -71,6 +71,16 @@ public:
 		if(instance)
 			instance->_InsertTuple(table_name,column_name,column_value);
 	}
+	/*
+	static void SimpleSelect (const string table_name,
+							  const List<string>* columns,
+							  const Expr* conditionTree,
+							  bool isDistinct)
+	{
+		if(instance)
+			instance->_SimpleSelect(table_name,columns,conditionTree, isDistinct);
+	}
+	*/
 };
 
 #endif //__STOREGE_WRAPPER__

@@ -1,3 +1,6 @@
+#ifndef __AST_H__
+#define __AST_H__
+
 #include <iostream>
 #include "list.h"
 #include <string.h>
@@ -197,6 +200,7 @@ public:
 		table_names(tables), columns(c), distinct(isDistinct),
 		condition(where), orderBy(o)
 	{}
+	List<TUPLE *> * Execute();
 	virtual void Print(int indentLevel); 
 };
 
@@ -360,3 +364,4 @@ public:
 			column->Print(indentLevel+1);
 	}
 };
+#endif // __AST_H__

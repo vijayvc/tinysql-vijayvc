@@ -1,5 +1,6 @@
 #include "ast.h"
 #include "StorageWrapper.h"
+#include "LogicalQueryPlan.h"
 
 void CreateTableStmt::Print(int indentLevel)
 {
@@ -111,5 +112,26 @@ List<TUPLE *> * InsertStmt::Execute()
 		 column_names.Append(columns->Nth(i)->GetName());
 
 	StorageManagerWrapper::InsertTuple(table_name->GetName(),&column_names,values->GetValueList());
+	return NULL;
+}
+
+List<TUPLE*>* SelectStmt::Execute()
+{
+	/*
+	if (table_names->NumElements() == 1)
+	{
+		List<string> fields;
+		for(int i=0; i < columns->NumElements(); i++)
+			fields.Append(columns->Nth(i)->GetName());
+
+		//return StorageManagerWrapper::SimpleSelect(table_names, fields, condition, distinct); 
+	}
+	*/
+	LogicalQueryPlan* lqp = new LogicalQueryPlan(table_names, columns, condition, distinct, orderBy);
+
+	//lqp->Optimize();
+	//Operation * lqp = Create_LogicalQueryPlan();
+	//Optimized_lqp = QueryOptimizer(lqp);
+	//ExecuteOptimizedPlan();
 	return NULL;
 }
