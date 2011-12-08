@@ -12,6 +12,7 @@ class ColumnName;
 class Attribute;
 class InsertValues;
 class SelectStmt;
+class StorageManagerWrapper;
 
 #define PRINT_1(indentLevel, arg1) { printf("%*s", indentLevel*2,""); cout << arg1 << endl; }
 #define PRINT_2(indentLevel, arg1, arg2) { printf("%*s", indentLevel*2,""); cout << arg1 << arg2 << endl; }
@@ -20,7 +21,8 @@ enum ConstType
 {
 	eInt,
 	eString,
-	eNull
+	eNull,
+	eBool
 };
 
 
@@ -50,6 +52,7 @@ protected:
 public:
 	Expr() {}
 	virtual void Print(int indentLevel) = 0; 
+	virtual Constant * Evaluate(StorageManagerWrapper* sw) { Assert(0); return NULL; }
 };
 
 class Constant: public Expr
@@ -58,8 +61,18 @@ public:
 	Constant() { }
 	virtual ConstType GetType() = 0;
 	virtual void Print(int indentLevel) = 0; 
-	virtual string GetStringValue() { return NULL; }
-	virtual int GetIntValue() { return 0; }
+	virtual string GetStringValue() { 
+		Assert(0);
+		return NULL; 
+	}
+	virtual int GetIntValue() { 
+		Assert(0);
+		return 0; 
+	}
+	virtual bool GetBoolValue() { 
+		Assert(0);
+		return false; 
+	} 
 };
 
 class IntConstant: public Constant
@@ -73,6 +86,7 @@ public:
 		PRINT_2(indentLevel, "IntConstant: ", val);
 	}
 	virtual int GetIntValue() { return val; }
+	virtual Constant * Evaluate(StorageManagerWrapper* sw) { return this; }
 };
 
 class StringConstant: public Constant
@@ -86,6 +100,7 @@ public:
 		PRINT_2(indentLevel, "StringConstant: ", val);
 	}
 	virtual string GetStringValue() { return val; }
+	virtual Constant * Evaluate(StorageManagerWrapper* sw) { return this; }
 };
 
 class NullConstant: public Constant
@@ -97,7 +112,23 @@ public:
 	virtual void Print(int indentLevel) { 
 		PRINT_1(indentLevel, "NullConstant");
 	}
+	virtual Constant * Evaluate(StorageManagerWrapper* sw) { return this; }
 };
+
+class BoolConstant: public Constant
+{
+protected:
+	bool val;
+public:
+	BoolConstant(bool v): val(v) {}
+	virtual ConstType GetType() { return eBool; }
+	virtual void Print(int indentLevel) { 
+		PRINT_2(indentLevel, "BoolConstant: ", val);
+	}
+	virtual bool GetBoolValue() { return val; }
+	virtual Constant * Evaluate(StorageManagerWrapper* sw) { return this; }
+};
+
 
 class Operator: public Node
 {
@@ -108,6 +139,7 @@ public:
 	virtual void Print(int indentLevel) { 
 		PRINT_2(indentLevel, "Operator: ", tok);
 	}
+	char GetOperator() { return tok; }
 };
 
 class CompoundExpr: public Expr
@@ -125,6 +157,7 @@ public:
 			left->Print(indentLevel+1);
 		right->Print(indentLevel+1);
 	}
+	//virtual Constant * Evaluate(StorageManagerWrapper* sw) { Assert(0); return NULL; }
 };
 
 class ArithmeticExpr: public CompoundExpr
@@ -132,6 +165,8 @@ class ArithmeticExpr: public CompoundExpr
 protected:
 public:
 	ArithmeticExpr(Expr* l, Expr* r, Operator* o):CompoundExpr(l,r,o) {}
+	virtual Constant * Evaluate(StorageManagerWrapper* sw);
+
 	virtual void Print(int indentLevel) { 
 		PRINT_1(indentLevel, "Arithmetic Expr:");
 		CompoundExpr::Print(indentLevel+1);
@@ -147,6 +182,7 @@ public:
 		PRINT_1(indentLevel, "Logical Expr:");
 		CompoundExpr::Print(indentLevel+1);
 	}
+	virtual Constant * Evaluate(StorageManagerWrapper* sw);
 };
 
 class RelationalExpr: public CompoundExpr
@@ -158,6 +194,7 @@ public:
 		PRINT_1(indentLevel, "Relational Expr:");
 		CompoundExpr::Print(indentLevel+1);
 	}
+	virtual Constant * Evaluate(StorageManagerWrapper* sw);
 };
 
 class CreateTableStmt: public Statement
@@ -256,6 +293,14 @@ protected:
 public:
 	ColumnName(EntityName* t_name, EntityName* f_name)
 		:table(t_name),column(f_name) { }
+	const char *GetTableName()
+	{
+		return table? table->GetName():NULL;
+	}
+	const char * GetColumnName()
+	{
+		return column->GetName();
+	}
 	virtual void Print(int indentLevel) { 
 		PRINT_1(indentLevel, "ColumnName: ");
 		indentLevel += 1;
@@ -363,5 +408,6 @@ public:
 			PRINT_1(indentLevel, "ColumnAccess:");
 			column->Print(indentLevel+1);
 	}
+	virtual Constant * Evaluate(StorageManagerWrapper* sw);
 };
 #endif // __AST_H__

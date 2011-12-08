@@ -88,7 +88,7 @@ List<TUPLE*>* CreateTableStmt::Execute()
 	for (int i = 0; i < attrList->NumElements(); i++)
 	{
 		field_names.push_back(attrList->Nth(i)->GetFieldName());
-		if(!strcmp("STR20",attrList->Nth(i)->GetTypeName()))
+		if(!strcmp("string",attrList->Nth(i)->GetTypeName()))
 			field_types.push_back(STR20);
 		else
 			field_types.push_back(INT);
@@ -127,11 +127,97 @@ List<TUPLE*>* SelectStmt::Execute()
 		//return StorageManagerWrapper::SimpleSelect(table_names, fields, condition, distinct); 
 	}
 	*/
-	LogicalQueryPlan* lqp = new LogicalQueryPlan(table_names, columns, condition, distinct, orderBy);
-
+	if(table_names->NumElements()== 1)
+	{
+		StorageManagerWrapper::ExecuteSingleTableSelect(table_names->Nth(0)->GetName(), columns, condition, distinct, orderBy);
+	}
+	else
+	{
+		LogicalQueryPlan* lqp = new LogicalQueryPlan(table_names, columns, condition, distinct, orderBy);
+    	//StorageManagerWrapper::ExecuteSelect(lqp); 
+	}
 	//lqp->Optimize();
 	//Operation * lqp = Create_LogicalQueryPlan();
 	//Optimized_lqp = QueryOptimizer(lqp);
 	//ExecuteOptimizedPlan();
 	return NULL;
+}
+
+Constant * ArithmeticExpr::Evaluate(StorageManagerWrapper* sw)
+{
+	Constant *lvalue = left->Evaluate(sw);
+	Constant *rvalue = right->Evaluate(sw);
+	int op1 = lvalue->GetIntValue();
+	int op2 = rvalue->GetIntValue();
+	switch(op->GetOperator())
+	{
+		case '+':
+			return (new IntConstant(op1 + op2));
+			break;
+		case '-':
+			return (new IntConstant(op1 - op2));
+			break;
+		case '/':
+			return (new IntConstant(op1 / op2));
+			break;
+		case '*':
+			return (new IntConstant(op1 * op2));
+			break;
+	}
+	return NULL;
+}
+
+Constant* LogicalExpr::Evaluate(StorageManagerWrapper* sw)
+{
+	Constant *lvalue = left->Evaluate(sw);
+	Constant *rvalue = right->Evaluate(sw);
+	bool op1 = lvalue->GetBoolValue();
+	bool op2 = rvalue->GetBoolValue();
+	switch(op->GetOperator())
+	{
+		case '&':
+			return (new BoolConstant(op1 && op2));
+			break;
+		case '|':
+			return (new BoolConstant(op1 || op2));
+			break;
+		default:
+			Assert(0);
+	}
+	return NULL;
+}
+
+Constant* RelationalExpr::Evaluate(StorageManagerWrapper* sw)
+{
+	Constant *lvalue = left->Evaluate(sw);
+	Constant *rvalue = right->Evaluate(sw);
+	if(lvalue->GetType() == eInt)
+	{
+		int op1 = lvalue->GetIntValue();
+		int op2 = rvalue->GetIntValue();
+		switch(op->GetOperator())
+		{
+			case '=': return new BoolConstant(op1 == op2);
+			case '>': return new BoolConstant(op1 > op2);
+			case '<': return new BoolConstant(op1 < op2);
+			default:  Assert(0);
+		}
+	}
+	else if (lvalue->GetType() == eString)
+	{
+		string op1 = lvalue->GetStringValue();
+		string op2 = rvalue->GetStringValue();
+		switch(op->GetOperator())
+		{
+			case '=': return new BoolConstant(op1 == op2);
+			default:  Assert(0);
+		}
+
+	}
+	return NULL;
+}
+
+Constant* ColumnAccess::Evaluate(StorageManagerWrapper* sw)
+{
+	return sw->GetValue(column->GetTableName(), column->GetColumnName());
 }

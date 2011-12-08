@@ -113,6 +113,7 @@ class LogicalQueryPlan
 {
 	Operation* root;
 	bool isOptimized;
+	bool isSelectSingleTable;
 public:
 	LogicalQueryPlan(
 		List<EntityName*>* table_names,

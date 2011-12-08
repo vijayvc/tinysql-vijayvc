@@ -19,6 +19,8 @@
 
 #define TUPLE List<Constant*>
 class Constant;
+class Expr;
+class ColumnName;
 
 class StorageManagerWrapper
 {
@@ -33,6 +35,26 @@ protected:
     void _InsertTuple(const string table_name,
 			const List<string> *column_name,
 			const List<TUPLE*> *column_value);
+	
+	void _ExecuteSingleTableSelect(const string table_name,
+			const List <ColumnName*>* columns,
+			Expr* condition,bool distinct,
+			ColumnName* orderBy);
+	void _orderBySinglePass(vector<Tuple> & tuples,
+		const string attr);
+
+	void _print_tuples(const vector<string> &attrName,
+			const vector<Tuple> & tuples);
+	void _distinctSinglePass(vector<Tuple>& tuples,
+			const vector<string> &attrName);
+	void _print_ATuple(const Tuple & tuple,
+			const vector<string> &attrName);
+	//		bool  distinct);
+
+	void _twoPass_OrderBy(const string relationName,const string attr, 
+			const vector<string> &attrName);
+	void _twoPass_Distinct(const string relationName,
+			const vector<string> &attrName);
 	int OutputBufferIndex()
 	{
 		//Assert(mem->getMemorySize());
@@ -41,6 +63,10 @@ protected:
 	StorageManagerWrapper();
 
 	static StorageManagerWrapper* instance;
+
+	// used to evaluate where clause
+	static List<string> tableList;
+	static List<Tuple*> tupleList;
 public:
 	static bool Initialize()
 	{
@@ -71,6 +97,16 @@ public:
 		if(instance)
 			instance->_InsertTuple(table_name,column_name,column_value);
 	}
+
+
+	static void ExecuteSingleTableSelect(const string table_name,
+								const List <ColumnName*>* columns,
+								Expr* condition,bool distinct,
+								ColumnName* orderBy)
+	{
+		if(instance)
+			instance->_ExecuteSingleTableSelect(table_name,columns, condition,distinct, orderBy);
+	}
 	/*
 	static void SimpleSelect (const string table_name,
 							  const List<string>* columns,
@@ -81,6 +117,7 @@ public:
 			instance->_SimpleSelect(table_name,columns,conditionTree, isDistinct);
 	}
 	*/
+	Constant* GetValue(const char* table_name, const char* field_name);
 };
 
 #endif //__STOREGE_WRAPPER__
