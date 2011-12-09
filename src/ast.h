@@ -4,11 +4,14 @@
 #include <iostream>
 #include "list.h"
 #include <string.h>
+#include <vector>
+#include <set>
 using namespace std;
 
 class Constant;
 class EntityName;
 class ColumnName;
+class ColumnAccess;
 class Attribute;
 class InsertValues;
 class SelectStmt;
@@ -53,6 +56,8 @@ public:
 	Expr() {}
 	virtual void Print(int indentLevel) = 0; 
 	virtual Constant * Evaluate(StorageManagerWrapper* sw) { Assert(0); return NULL; }
+	virtual void GetJoinAttributes(vector<ColumnAccess*> &joinAttr) { return; }
+	virtual void GetFieldsForRelation(string table, set<string> *fields) { return; }
 };
 
 class Constant: public Expr
@@ -112,6 +117,7 @@ public:
 	virtual void Print(int indentLevel) { 
 		PRINT_1(indentLevel, "NullConstant");
 	}
+	virtual int GetIntValue() { return 0; } // null returns 0
 	virtual Constant * Evaluate(StorageManagerWrapper* sw) { return this; }
 };
 
@@ -157,6 +163,15 @@ public:
 			left->Print(indentLevel+1);
 		right->Print(indentLevel+1);
 	}
+	void GetFieldsForRelation(string table, set<string> *fields) {
+		left->GetFieldsForRelation(table, fields);
+		right->GetFieldsForRelation(table, fields);
+	}
+	virtual void GetJoinAttributes(vector<ColumnAccess*> &joinAttr)
+	{
+		left->GetJoinAttributes(joinAttr);
+		right->GetJoinAttributes(joinAttr);
+	}
 	//virtual Constant * Evaluate(StorageManagerWrapper* sw) { Assert(0); return NULL; }
 };
 
@@ -195,6 +210,7 @@ public:
 		CompoundExpr::Print(indentLevel+1);
 	}
 	virtual Constant * Evaluate(StorageManagerWrapper* sw);
+	virtual void GetJoinAttributes(vector<ColumnAccess*> &joinAttr);
 };
 
 class CreateTableStmt: public Statement
@@ -409,5 +425,20 @@ public:
 			column->Print(indentLevel+1);
 	}
 	virtual Constant * Evaluate(StorageManagerWrapper* sw);
+	const char *GetTableName()
+	{
+		return column->GetTableName(); 
+	}
+	const char * GetColumnName()
+	{
+		return column->GetColumnName();
+	}
+	void GetFieldsForRelation(string table, set<string> *fields) { 
+		const char* t = column->GetTableName();
+		if (!t || table != t)
+			return;
+		fields->insert(column->GetColumnName());
+	}
+
 };
 #endif // __AST_H__

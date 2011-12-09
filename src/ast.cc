@@ -129,17 +129,20 @@ List<TUPLE*>* SelectStmt::Execute()
 	*/
 	if(table_names->NumElements()== 1)
 	{
-		StorageManagerWrapper::ExecuteSingleTableSelect(table_names->Nth(0)->GetName(), columns, condition, distinct, orderBy);
+		return StorageManagerWrapper::ExecuteSingleTableSelect(table_names->Nth(0)->GetName(), columns, condition, distinct, orderBy);
 	}
 	else
 	{
-		LogicalQueryPlan* lqp = new LogicalQueryPlan(table_names, columns, condition, distinct, orderBy);
+		//LogicalQueryPlan* lqp = new LogicalQueryPlan(table_names, columns, condition, distinct, orderBy);
+		//lqp->Optimize();
+		//Operation * lqp = Create_LogicalQueryPlan();
+		//Optimized_lqp = QueryOptimizer(lqp);
+		//ExecuteOptimizedPlan();
+
+		// Optimizations done directly.
+		return StorageManagerWrapper::ExecuteMultipleTableSelect(table_names, columns, condition, distinct, orderBy);
     	//StorageManagerWrapper::ExecuteSelect(lqp); 
 	}
-	//lqp->Optimize();
-	//Operation * lqp = Create_LogicalQueryPlan();
-	//Optimized_lqp = QueryOptimizer(lqp);
-	//ExecuteOptimizedPlan();
 	return NULL;
 }
 
@@ -169,9 +172,13 @@ Constant * ArithmeticExpr::Evaluate(StorageManagerWrapper* sw)
 
 Constant* LogicalExpr::Evaluate(StorageManagerWrapper* sw)
 {
-	Constant *lvalue = left->Evaluate(sw);
+	Constant *lvalue = NULL;
+	if (left)
+		lvalue = left->Evaluate(sw);
 	Constant *rvalue = right->Evaluate(sw);
-	bool op1 = lvalue->GetBoolValue();
+	bool op1 = false;
+	if (lvalue)
+		op1 = lvalue->GetBoolValue();
 	bool op2 = rvalue->GetBoolValue();
 	switch(op->GetOperator())
 	{
@@ -181,6 +188,8 @@ Constant* LogicalExpr::Evaluate(StorageManagerWrapper* sw)
 		case '|':
 			return (new BoolConstant(op1 || op2));
 			break;
+		case '!':
+			return (new BoolConstant(! op2));
 		default:
 			Assert(0);
 	}
@@ -221,3 +230,26 @@ Constant* ColumnAccess::Evaluate(StorageManagerWrapper* sw)
 {
 	return sw->GetValue(column->GetTableName(), column->GetColumnName());
 }
+
+void RelationalExpr::GetJoinAttributes(vector<ColumnAccess*> &joinAttr)
+{
+	if (!left) return;
+	if (op->GetOperator() != '=') return;
+
+	ColumnAccess* col1 = dynamic_cast<ColumnAccess*>(left); //->GetColumnAccess();
+	ColumnAccess* col2 = dynamic_cast<ColumnAccess*>(right); //->GetColumnAccess();
+	if (!col1 || !col2) return; 
+
+	if (strcmp(col1->GetTableName(), col2->GetTableName()))
+	{
+		joinAttr.push_back(col1);
+		joinAttr.push_back(col2);
+	}
+	/*
+	else
+	{
+		joinAttr.push_back(col1);
+		joinAttr.push_back(col2);
+	}*/
+}
+

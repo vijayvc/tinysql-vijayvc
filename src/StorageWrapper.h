@@ -21,6 +21,7 @@
 class Constant;
 class Expr;
 class ColumnName;
+class EntityName;
 
 class StorageManagerWrapper
 {
@@ -28,7 +29,7 @@ protected:
 	MainMemory 		mem;
 	SchemaManager 	schema_manager;
 	Disk 			disk;
-	void _CreateTable(string table_name,
+	Relation* _CreateTable(string table_name,
 			const vector<string> &field_names, 
 			const vector <enum FIELD_TYPE> & field_types);
 	void _DropTable(string relation_name);
@@ -36,25 +37,33 @@ protected:
 			const List<string> *column_name,
 			const List<TUPLE*> *column_value);
 	
-	void _ExecuteSingleTableSelect(const string table_name,
+	List<TUPLE*>* _ExecuteSingleTableSelect(const string table_name,
 			const List <ColumnName*>* columns,
 			Expr* condition,bool distinct,
 			ColumnName* orderBy);
-	void _orderBySinglePass(vector<Tuple> & tuples,
+	List<TUPLE*>* _ExecuteMultipleTableSelect(List<EntityName*>* table_names,
+			const List <ColumnName*>* columns,
+			Expr* condition,bool distinct,
+			ColumnName* orderBy);
+	void OrderByOnePass(vector<Tuple> & tuples,
 		const string attr);
 
 	void _print_tuples(const vector<string> &attrName,
 			const vector<Tuple> & tuples);
-	void _distinctSinglePass(vector<Tuple>& tuples,
+	void DistinctOnePass(vector<Tuple>& tuples,
 			const vector<string> &attrName);
 	void _print_ATuple(const Tuple & tuple,
 			const vector<string> &attrName);
 	//		bool  distinct);
 
-	void _twoPass_OrderBy(const string relationName,const string attr, 
-			const vector<string> &attrName);
-	void _twoPass_Distinct(const string relationName,
-			const vector<string> &attrName);
+	void OrderByTwoPass(const string relationName,
+			const string attr, 
+			const vector<string> &attrName,
+			vector<Tuple> &resultTuples);
+	void DistinctTwoPass(const string relationName,
+			const vector<string> &attrName,
+			vector<Tuple> &distinctTuples);
+
 	int OutputBufferIndex()
 	{
 		//Assert(mem->getMemorySize());
@@ -99,13 +108,24 @@ public:
 	}
 
 
-	static void ExecuteSingleTableSelect(const string table_name,
+	static List<TUPLE*>* ExecuteSingleTableSelect(const string table_name,
 								const List <ColumnName*>* columns,
 								Expr* condition,bool distinct,
 								ColumnName* orderBy)
 	{
 		if(instance)
-			instance->_ExecuteSingleTableSelect(table_name,columns, condition,distinct, orderBy);
+			return instance->_ExecuteSingleTableSelect(table_name,columns, condition,distinct, orderBy);
+		return NULL;
+	}
+
+	static List<TUPLE*>* ExecuteMultipleTableSelect(List<EntityName*>* table_names,
+			const List <ColumnName*>* columns,
+			Expr* condition,bool distinct,
+			ColumnName* orderBy)
+	{
+		if(instance)
+			return instance->_ExecuteMultipleTableSelect(table_names,columns, condition,distinct, orderBy);
+		return NULL;
 	}
 	/*
 	static void SimpleSelect (const string table_name,
@@ -118,6 +138,34 @@ public:
 	}
 	*/
 	Constant* GetValue(const char* table_name, const char* field_name);
-};
+	vector<Relation*> *CreateSortedSublists(
+			string tableName, string orderBy); //, set<string> requiredFields)
 
+	bool MergeSublists(
+		vector<Relation*>* relationPtrs, 
+		vector<Relation*>* sublists1, 
+		vector<Relation*>* sublists2, 
+		string joinAttr,
+		Relation* jRelation,
+		vector<Tuple> &list1,
+		vector<Tuple> &list2);
+
+	void JoinTuples(vector<Tuple> &list1, 
+		vector<Tuple> &list2, 
+		vector<Tuple> &result,
+		Schema schema1,
+		Schema schema2,
+		string joinAttr,
+		Expr* condition);
+
+	bool LoadRelation(Relation* relation, vector<Tuple> &list, bool distinct);
+	bool StoreRelation(Relation* relation, vector<Tuple> &list);
+	vector<Tuple>* DistinctSecondPass(vector<Relation*> *sublists, 
+		vector<string> attrNames,
+		vector<Tuple>* merged);
+	vector<Tuple>* MergeSortedSublists(vector<Relation*> *sublists, 
+		string joinAttr,
+		vector<Tuple>* merged);
+
+};
 #endif //__STOREGE_WRAPPER__
