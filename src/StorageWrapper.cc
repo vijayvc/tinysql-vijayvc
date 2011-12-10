@@ -416,11 +416,12 @@ void PrintSet(std::set<string>* inp)
 		cout << "\t" << *i << endl;
 }
 
-bool StorageManagerWrapper::LoadRelation(Relation* relation, vector<Tuple> &list, bool distinct)
+bool StorageManagerWrapper::LoadRelation(Relation* relation, vector<Tuple> &list, bool distinct, RelationalExpr* condition)
 {
 	int remaining = relation->getNumOfBlocks();
 	int canRead = mem.getMemorySize();
 	int index = 0;
+
 	while(1)
 	{
 		if (remaining == 0)
@@ -442,7 +443,15 @@ bool StorageManagerWrapper::LoadRelation(Relation* relation, vector<Tuple> &list
 		{
 			vector<Tuple> temp = mem.getBlock(i)->getTuples();
 			for (int j=0; j < temp.size(); j++)
-				list.push_back(temp[j]);
+			{
+				if (condition)
+				{
+					if (condition->Evaluate(temp[j]))
+						list.push_back(temp[j]);
+				}
+				else
+					list.push_back(temp[j]);
+			}
 		}
 	}
 	if (distinct && relation->getNumOfBlocks() < mem.getMemorySize())
@@ -756,14 +765,22 @@ List<TUPLE*>* StorageManagerWrapper::_ExecuteMultipleTableSelect(List<EntityName
 	Relation* jRelation = schema_manager.createRelation(jName, jSchema);
 	Tuple jTuple = jRelation->createTuple();
 
+	Expr* cond1 = NULL;
+	Expr* cond2 = NULL;
+	if (condition && !condition->ORUsed())
+	{
+		cond1 = condition->GetPushableExpr(relationNames->Nth(0)->GetName());
+		cond2 = condition->GetPushableExpr(relationNames->Nth(1)->GetName());
+	}
+
 	vector<Tuple> list1;
 	vector<Tuple> list2;
 	if (passes == 0 || passes == 1)
 	{
 		// full in-memory 
 		// read both and join
-		LoadRelation(relationPtrs[0], list1, distinct);	
-		LoadRelation(relationPtrs[1], list2, distinct);	
+		LoadRelation(relationPtrs[0], list1, distinct, dynamic_cast<RelationalExpr*>(cond1));	
+		LoadRelation(relationPtrs[1], list2, distinct, dynamic_cast<RelationalExpr*>(cond2));	
 		/*
 		bool loaded = relationPtrs[0]->getBlocks(0, 0, relationPtrs[0]->getNumOfBlocks());
 		for (int i = 0; i < relationPtrs[0]->getNumOfBlocks(); i++)
@@ -796,8 +813,8 @@ List<TUPLE*>* StorageManagerWrapper::_ExecuteMultipleTableSelect(List<EntityName
 		int numSublist1 = mem.getMemorySize()/numBlocksRequired1;
 		int numSublist2 = mem.getMemorySize()/numBlocksRequired2;
 		// read once, write once
-		vector<Relation*> *sortedSublists1 = CreateSortedSublists(relationNames->Nth(0)->GetName(), joinAttr);
-		vector<Relation*> *sortedSublists2 = CreateSortedSublists(relationNames->Nth(1)->GetName(), joinAttr);
+		vector<Relation*> *sortedSublists1 = CreateSortedSublists(relationNames->Nth(0)->GetName(), joinAttr, dynamic_cast<RelationalExpr*>(cond1));
+		vector<Relation*> *sortedSublists2 = CreateSortedSublists(relationNames->Nth(1)->GetName(), joinAttr, dynamic_cast<RelationalExpr*>(cond2));
 
 		// second pass 
 		MergeSublists(&relationPtrs, sortedSublists1, sortedSublists2, joinAttr, jRelation, list1, list2);  
@@ -1184,12 +1201,14 @@ void PrintRelation(Relation* r, Block* block)
 	cout << "=================\n";
 }
 
-vector<Relation*> *StorageManagerWrapper::CreateSortedSublists(string tableName, string orderBy) //, set<string> requiredFields)
+vector<Relation*> *StorageManagerWrapper::CreateSortedSublists(string tableName, string orderBy, RelationalExpr* condition) 
 {
 	Relation* relation = schema_manager.getRelation(tableName);
 	Schema schema = relation->getSchema();
 	int canRead = mem.getMemorySize();
 	int remaining = relation->getNumOfBlocks();
+
+	int numTuplesPerBlock = schema.getTuplesPerBlock();
 
 	int sublistCount = 1;
 	char slname[100];
@@ -1217,28 +1236,39 @@ vector<Relation*> *StorageManagerWrapper::CreateSortedSublists(string tableName,
 		remaining -= readCount;
 		Assert(remaining >= 0);
 
+		Relation* slRelation = schema_manager.createRelation(slname, schema);
+		result->push_back(slRelation);
+
 		vector<Tuple> sublist;
 		for (int i = 0; i < readCount; i++)
 		{
 			vector<Tuple> temp = mem.getBlock(i)->getTuples();
 			for (int j=0; j < temp.size(); j++)
-				sublist.push_back(temp[j]);
+				if(condition)
+				{
+					if(condition->Evaluate(temp[j]))
+						sublist.push_back(temp[j]);
+				}
+				else
+					sublist.push_back(temp[j]);
 		}
+		if (sublist.size() == 0)
+			continue;
 		OrderByOnePass(sublist, orderBy); // in-memory sorting
 
 		int tupleIndex = 0;
-		for (int i = 0; i < readCount; i++)
+		int i;
+		for (i = 0; i < readCount && tupleIndex < sublist.size(); i++)
 		{
 			Block* block_ptr = mem.getBlock(i);
 			block_ptr->clear(); //clear the block
-			while(! block_ptr->isFull())
+			//int toCopy = numTuplesPerBlock;
+			while(! block_ptr->isFull() && tupleIndex < sublist.size())
 			{
 				block_ptr->appendTuple(sublist[tupleIndex++]);
 			}
 		}
-		Relation* slRelation = schema_manager.createRelation(slname, schema);
-		slRelation->setBlocks(0, 0, readCount); // -1 while indexing
-		result->push_back(slRelation);
+		slRelation->setBlocks(0, 0, i); // -1 while indexing
 
 		//cout << "Printing Relation: " << slname << endl;
 		//PrintRelation(slRelation, mem.getBlock(0));

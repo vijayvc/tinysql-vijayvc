@@ -16,6 +16,7 @@ class Attribute;
 class InsertValues;
 class SelectStmt;
 class StorageManagerWrapper;
+class Tuple;
 
 #define PRINT_1(indentLevel, arg1) { printf("%*s", indentLevel*2,""); cout << arg1 << endl; }
 #define PRINT_2(indentLevel, arg1, arg2) { printf("%*s", indentLevel*2,""); cout << arg1 << arg2 << endl; }
@@ -58,6 +59,10 @@ public:
 	virtual Constant * Evaluate(StorageManagerWrapper* sw) { Assert(0); return NULL; }
 	virtual void GetJoinAttributes(vector<ColumnAccess*> &joinAttr) { return; }
 	virtual void GetFieldsForRelation(string table, set<string> *fields) { return; }
+	virtual bool ORUsed()	{ return false; }
+	virtual Expr* GetPushableExpr(string table) { return NULL; }
+	virtual bool IsColumnAccessOf(string table) { return false; }
+	virtual bool IsConstant() { return false; }
 };
 
 class Constant: public Expr
@@ -78,6 +83,7 @@ public:
 		Assert(0);
 		return false; 
 	} 
+	virtual bool IsConstant() { return true; }
 };
 
 class IntConstant: public Constant
@@ -198,6 +204,29 @@ public:
 		CompoundExpr::Print(indentLevel+1);
 	}
 	virtual Constant * Evaluate(StorageManagerWrapper* sw);
+	virtual bool ORUsed()
+	{
+		if (op->GetOperator() == '|')
+			return true;
+		else
+		{
+			if (left)
+				if( left->ORUsed() ) return true;
+			return right->ORUsed();
+		}
+	}
+	virtual Expr* GetPushableExpr(string table) 
+	{ 
+		Expr* lreturn = left->GetPushableExpr(table);
+		if (lreturn)
+			return lreturn;
+		Expr* rreturn = right->GetPushableExpr(table);
+		if (rreturn)
+			return rreturn;
+		return NULL;
+	}
+
+
 };
 
 class RelationalExpr: public CompoundExpr
@@ -210,7 +239,27 @@ public:
 		CompoundExpr::Print(indentLevel+1);
 	}
 	virtual Constant * Evaluate(StorageManagerWrapper* sw);
+	bool Evaluate(Tuple &t);
 	virtual void GetJoinAttributes(vector<ColumnAccess*> &joinAttr);
+	virtual Expr* GetPushableExpr(string table) 
+	{ 
+		bool isLeftCA = left->IsColumnAccessOf(table);
+		bool isRightConst = right->IsConstant();
+		if (isLeftCA && isRightConst)
+			return this;
+		bool isRightCA = left->IsColumnAccessOf(table);
+		bool isLeftConst = left->IsConstant();
+		if (isRightCA && isLeftConst)
+			return this;
+
+		Expr* lreturn = left->GetPushableExpr(table);
+		if (lreturn)
+			return lreturn;
+		Expr* rreturn = right->GetPushableExpr(table);
+		if (rreturn)
+			return rreturn;
+		return NULL;
+	}
 };
 
 class CreateTableStmt: public Statement
@@ -439,6 +488,11 @@ public:
 		if (!t || table != t)
 			return;
 		fields->insert(column->GetColumnName());
+	}
+	virtual bool IsColumnAccessOf(string table) { 
+		if (table == string(column->GetTableName()))
+			return true;
+		return false; 
 	}
 
 };

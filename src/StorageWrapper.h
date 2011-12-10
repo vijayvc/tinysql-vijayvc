@@ -20,6 +20,7 @@
 #define TUPLE List<Constant*>
 class Constant;
 class Expr;
+class RelationalExpr;
 class ColumnName;
 class EntityName;
 
@@ -153,7 +154,7 @@ public:
 	*/
 	Constant* GetValue(const char* table_name, const char* field_name);
 	vector<Relation*> *CreateSortedSublists(
-			string tableName, string orderBy); //, set<string> requiredFields)
+			string tableName, string orderBy, RelationalExpr* condition); 
 
 	bool MergeSublists(
 		vector<Relation*>* relationPtrs, 
@@ -172,7 +173,7 @@ public:
 		string joinAttr,
 		Expr* condition);
 
-	bool LoadRelation(Relation* relation, vector<Tuple> &list, bool distinct);
+	bool LoadRelation(Relation* relation, vector<Tuple> &list, bool distinct=false, RelationalExpr* condition=NULL);
 	bool StoreRelation(Relation* relation, vector<Tuple> &list);
 	vector<Tuple>* DistinctSecondPass(vector<Relation*> *sublists, 
 		vector<string> attrNames,

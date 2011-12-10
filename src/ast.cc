@@ -248,6 +248,45 @@ Constant* RelationalExpr::Evaluate(StorageManagerWrapper* sw)
 	return NULL;
 }
 
+bool DoOp(int val1, char op, int val2)
+{
+	switch(op)
+	{
+		case '<': return val1 < val2;
+		case '>': return val1 > val2;
+		case '=': return val1 == val2;
+		default:  return false;
+	}
+}
+
+bool RelationalExpr::Evaluate(Tuple &t)
+{
+	// we wud ve reached here only after knowing its a pushdown operation
+	int val1;
+	int val2;
+	if (left->IsConstant())
+	{
+		Constant* l = dynamic_cast<Constant*>(left);
+		val1 = l->GetIntValue();
+		ColumnAccess* ca = dynamic_cast<ColumnAccess*>(right);
+		if (!ca)
+			return false;
+		val2 = t.getField(ca->GetColumnName()).integer;
+		return DoOp(val1, op->GetOperator(), val2);
+	}
+	else if (right->IsConstant())
+	{
+		ColumnAccess* ca = dynamic_cast<ColumnAccess*>(left);
+		if (!ca)
+			return false;
+		val1 = t.getField(ca->GetColumnName()).integer;
+		Constant* r = dynamic_cast<Constant*>(right);
+		val2 = r->GetIntValue();
+		return DoOp(val1, op->GetOperator(), val2);
+	}
+	return false;
+}
+
 Constant* ColumnAccess::Evaluate(StorageManagerWrapper* sw)
 {
 	return sw->GetValue(column->GetTableName(), column->GetColumnName());
