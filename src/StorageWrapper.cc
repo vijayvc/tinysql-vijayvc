@@ -344,7 +344,7 @@ List<TUPLE*>* StorageManagerWrapper::_ExecuteSingleTableSelect(
 					tupleIndex++;
 					if (tupleIndex > tuplesInMem)
 					{
-						cout << "Tuples in SL: " << resultTuples.size() << endl;
+						//cout << "Tuples in SL: " << resultTuples.size() << endl;
 						if (distinct)
 							DistinctOnePass(resultTuples, attrNames);
 						if (orderBy)
@@ -584,36 +584,25 @@ void GetNaturalJoinSchema(
 	}
 }
 
-#if 0
 void GetCrossJoinSchema(
-		//SchemaManager schema_manager,
-		List<EntityName*> *tableNames,
-		vector<Relation*> &relationPtrs,
-		//const List<ColumnName*>* columnNames,
-		//string except, // omit join attribute
-		//Schema& resultSchema)
-		vector<string>& result_fn,
+		vector<string> &tables,
+		vector<Schema> &schemas,
+		vector<string> &result_fn,
 		vector<FIELD_TYPE>& result_ft)
 {
-	// now add other fields
-	//string tbnames[] = { "_tb1", "_tb2", "_tb3", "_tb4" };
-	for(int i = 0; i < relationPtrs.size(); ++i)
+	for (int i = 0; i < tables.size(); i++)
 	{
-		vector<string> fn = relationPtrs[i]->getSchema().getFieldNames();
-		vector<FIELD_TYPE> ft = relationPtrs[i]->getSchema().getFieldTypes();
-		for(int j = 0; j < fn.size(); ++j)
+		vector<string> fn = schemas[i].getFieldNames();
+		vector<FIELD_TYPE> ft = schemas[i].getFieldTypes();
+		for (int j = 0; j < schemas[i].getNumOfFields(); j++)
 		{
-			//if (fn[j] != except)
-			{
-				string fname = tableNames->Nth(i)->GetName(); fname.append("."); fname.append(fn[j]);
-				//result_fn.push_back(fn[j].append(tableNames->Nth(i)->GetName()));
-				result_fn.push_back(fname);
-				result_ft.push_back(ft[j]);
-			}
+			string fname = tables[i]; fname.append("."); fname.append(fn[j]);
+			result_fn.push_back(fname);
+			result_ft.push_back(ft[j]);
 		}
+			
 	}
 }
-#endif 
 
 void DeleteSortedSublists(string tableName, vector<Relation*> *sl, SchemaManager &schema_manager)
 {
@@ -661,9 +650,10 @@ List<TUPLE*>* StorageManagerWrapper::_ExecuteMultipleTableSelect(List<EntityName
 	// is it a cross join?
 	if (!condition && !distinct && !orderBy)
 	{
-		cout << "Crossjoin Not handled\n";
-		return NULL;
-	//	return CrossJoin(relationNames, relationPtrs);
+		//cout << "Crossjoin Not handled\n";
+		//return NULL;
+		return CrossJoin(relationNames, relationPtrs);
+		/*
 		vector<string> relations;
 		map<string,vector<string> > relationFieldMap;
 		for (int i = 0; i < relationNames->NumElements(); i ++)
@@ -675,10 +665,10 @@ List<TUPLE*>* StorageManagerWrapper::_ExecuteMultipleTableSelect(List<EntityName
 			//relationFieldMap.insert(pair<string, vector<string> >(relations->(i), schema.getFieldNames()));
 			relationFieldMap.insert(pair<string,vector<string> >(relationName,schema.getFieldNames()));
 		}	
-
 		map<string, vector<string> > attrToProject = relationFieldMap;
 		cross_join(&relations, schema_manager, mem, attrToProject, relationFieldMap);
 		return NULL;
+		*/
 	}
 
 	// Try to find out how many fields are required from each relation. So that we can do projection when scanning 
@@ -1859,10 +1849,98 @@ Schema* MergeSchemas(const Schema& s1, const Schema& s2)
 	return new Schema(fn3, ft3);
 }
 
+void Product(vector<Tuple> &list1, vector<Tuple> &list2, vector<Tuple> &result, Tuple resultTuple)
+{
+	Schema schema1 = list1[0].getSchema();
+	vector<FIELD_TYPE> ft1 = schema1.getFieldTypes();
+	Schema schema2 = list2[0].getSchema();
+	vector<FIELD_TYPE> ft2 = schema2.getFieldTypes();
+
+	for(int i = 0; i < list1.size(); i++)
+	{
+		Tuple tup1 = list1[i];
+		for (int k = 0; k < tup1.getNumOfFields(); k++)
+		{
+			if (ft1[k] == INT)
+				resultTuple.setField(k, tup1.getField(k).integer);
+			else
+				resultTuple.setField(k, *(tup1.getField(k).str));
+		}
+		int offset = tup1.getNumOfFields();
+		for (int j = 0; j < list2.size(); j++)
+		{
+			Tuple tup2 = list2[j];
+			for (int k = 0; k < tup2.getNumOfFields(); k++)
+				if (ft2[k] == INT)
+					resultTuple.setField(offset+k, tup2.getField(k).integer);
+				else
+					resultTuple.setField(offset+k, *(tup2.getField(k).str));
+			result.push_back(resultTuple);
+		}
+	}
+}
+
 List<TUPLE*>* StorageManagerWrapper::CrossJoin(
 		List<EntityName*>* tableNames,
 		vector<Relation*> &relationPtrs)
 {
+	if (tableNames->NumElements() == 2)
+	{
+
+		int blocksReq1 = relationPtrs[0]->getNumOfBlocks();
+		int blocksReq2 = relationPtrs[1]->getNumOfBlocks();
+
+		int smallerIndex = 0;
+		int largerIndex = 1;
+		if (blocksReq1 > blocksReq2)
+		{
+			smallerIndex = 1;
+			largerIndex = 0;
+		}
+		if (relationPtrs[smallerIndex]->getNumOfBlocks() > mem.getMemorySize())
+		{
+			cout << "Two pass cross join not supported\n";
+			return NULL;
+		}
+
+		vector<Schema> schemas;
+		schemas.push_back(relationPtrs[smallerIndex]->getSchema());
+		schemas.push_back(relationPtrs[largerIndex]->getSchema());
+
+		vector<string> tables;
+		tables.push_back(tableNames->Nth(smallerIndex)->GetName());
+		tables.push_back(tableNames->Nth(largerIndex)->GetName());
+
+		vector<string> fnames; vector<FIELD_TYPE> ftypes;
+		GetCrossJoinSchema(tables, schemas, fnames, ftypes);
+		Schema jSchema = Schema(fnames, ftypes);
+		string jName = tableNames->Nth(smallerIndex)->GetName();
+		jName.append("_");
+		jName.append(tableNames->Nth(largerIndex)->GetName());
+		Relation* jRelation = schema_manager.createRelation(jName, jSchema);
+		Tuple jTuple = jRelation->createTuple();
+
+		// load smallers table into memory
+		for (int i = 0; i < mem.getMemorySize(); i++)
+			mem.getBlock(i)->clear();
+
+		Relation* smaller = relationPtrs[smallerIndex];
+		Relation* larger = relationPtrs[largerIndex];
+
+		bool loaded = smaller->getBlocks(0, 0, smaller->getNumOfBlocks());
+		Assert(loaded);
+		vector<Tuple> list1 = mem.getTuples(0, smaller->getNumOfBlocks());
+		int remMem = mem.getMemorySize()-smaller->getNumOfBlocks();
+
+		vector<Tuple> list2;
+		LoadRelation(larger, list2);
+		vector<Tuple> resultList;
+		Product(list1, list2, resultList, jTuple);
+		_print_tuples(fnames, resultList);
+		schema_manager.deleteRelation(jName);
+	}
+	return NULL;
+}
 	//vector<Relation*> relationPtrs;
 	//vector<Relation*> sortedRelationPtrs;
 
@@ -1955,8 +2033,8 @@ List<TUPLE*>* StorageManagerWrapper::CrossJoin(
 		relationPtrs.
 	}
 	*/
-	return NULL;
-}
+	//return NULL;
+//}
 
 void print_result_tuple(string &res)
 {
