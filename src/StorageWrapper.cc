@@ -32,7 +32,7 @@ StorageManagerWrapper::StorageManagerWrapper()
 	disk.resetDiskIOs();
 	disk.resetDiskTimer();
 }
-	
+
 void PrintSchema(Schema &schema)
 {
 	// Print the information about the schema
@@ -652,6 +652,8 @@ List<TUPLE*>* StorageManagerWrapper::_ExecuteMultipleTableSelect(List<EntityName
 	// is it a cross join?
 	if (!condition && !distinct && !orderBy)
 	{
+		cout << "Crossjoin Not handled\n";
+		return NULL;
 	//	return CrossJoin(relationNames, relationPtrs);
 		vector<string> relations;
 		map<string,vector<string> > relationFieldMap;

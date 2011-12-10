@@ -29,6 +29,8 @@ protected:
 	MainMemory 		mem;
 	SchemaManager 	schema_manager;
 	Disk 			disk;
+	clock_t start_time;
+
 	Relation* _CreateTable(string table_name,
 			const vector<string> &field_names, 
 			const vector <enum FIELD_TYPE> & field_types);
@@ -83,8 +85,14 @@ public:
 		if(!instance)
 		{
 			instance = new StorageManagerWrapper();
-			if(instance)
-				return true;
+			instance->disk.resetDiskIOs();
+			instance->disk.resetDiskTimer();
+
+			// Another way to time
+			//clock_t start_time;
+			instance->start_time=clock();
+			//if(instance)
+			return true;
 		}
 		return false;
 	}
@@ -176,6 +184,38 @@ public:
 	List<TUPLE*>* CrossJoin(
 		List<EntityName*>* tableNames,
 		vector<Relation*> &relationPtrs);
+
+	static void BeginQuery()
+	{
+		if (!instance)
+			return;
+		instance->disk.resetDiskIOs();
+		instance->disk.resetDiskTimer();
+
+		// Another way to time
+		//clock_t start_time;
+		instance->start_time=clock();
+	}
+	static void EndQuery()
+	{
+		if(!instance)
+			return;
+		cout << "Real elapse time = " << ((double)(clock()-instance->start_time)/CLOCKS_PER_SEC*1000) << " ms" << endl;
+		cout << "Calculated elapse time = " << instance->disk.getDiskTimer() << " ms" << endl;
+		cout << "Calculated Disk I/Os = " << instance->disk.getDiskIOs() << endl;
+	}
+	static void Finish()
+	{
+		if(instance)
+		{
+			cout << "Real elapse time = " << ((double)(clock()-instance->start_time)/CLOCKS_PER_SEC*1000) << " ms" << endl;
+			cout << "Calculated elapse time = " << instance->disk.getDiskTimer() << " ms" << endl;
+			cout << "Calculated Disk I/Os = " << instance->disk.getDiskIOs() << endl;
+			delete instance;
+			instance = NULL;
+		}
+
+	}
 
 };
 #endif //__STOREGE_WRAPPER__

@@ -13,6 +13,7 @@
  */
 #include "scanner.h" // for yylex
 #include "parser.h"
+#include "StorageWrapper.h"
 
 #define MAX_NAME_LEN 1024
 void yyerror(char *msg); // standard error-handling routine
@@ -113,7 +114,9 @@ StatementList		: Statement StatementList			{ /*$2->Append($1); $$ = $2; */}
 
 Statement			: Stmt								{ 
 						  									//$1->Print(0); 
+						  									//StorageManagerWrapper::BeginQuery();		
 						  									$1->Execute(); 
+						  									//StorageManagerWrapper::EndQuery();		
 					  									}
 
 Stmt				: Create_Table_Stmt	T_LineEnd		{ $$ = $1; }

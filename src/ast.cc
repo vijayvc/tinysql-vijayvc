@@ -148,7 +148,7 @@ List<TUPLE*>* SelectStmt::Execute()
 	{
 		return StorageManagerWrapper::ExecuteSingleTableSelect(table_names->Nth(0)->GetName(), columns, condition, distinct, orderBy);
 	}
-	else
+	else if(table_names->NumElements() == 2)
 	{
 		//LogicalQueryPlan* lqp = new LogicalQueryPlan(table_names, columns, condition, distinct, orderBy);
 		//lqp->Optimize();
@@ -159,6 +159,10 @@ List<TUPLE*>* SelectStmt::Execute()
 		// Optimizations done directly.
 		return StorageManagerWrapper::ExecuteMultipleTableSelect(table_names, columns, condition, distinct, orderBy);
     	//StorageManagerWrapper::ExecuteSelect(lqp); 
+	}
+	else
+	{
+		cout << "Cannot handle more than two tables!\n";
 	}
 	cout << "\n======END=====\n";
 	return NULL;

@@ -47,6 +47,7 @@ int main(int argc, char *argv[])
     InitParser();
     yyparse();
     //return (ReportError::NumErrors() == 0? 0 : -1);
+	StorageManagerWrapper::Finish();
 	return 0;
 }
 
