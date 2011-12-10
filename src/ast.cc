@@ -83,6 +83,7 @@ void InsertStmt::Print(int indentLevel)
 
 List<TUPLE*>* CreateTableStmt::Execute()
 { 
+	cout << "CreateTable Stmt: BEGIN\n";
 	vector<enum FIELD_TYPE> field_types;
 	vector<string> field_names;
 	for (int i = 0; i < attrList->NumElements(); i++)
@@ -94,17 +95,31 @@ List<TUPLE*>* CreateTableStmt::Execute()
 			field_types.push_back(INT);
 	}
 	StorageManagerWrapper::CreateTable(table_name->GetName(), field_names, field_types);
+	cout << "\n======END=====\n";
+	return NULL;
+}
+
+List<TUPLE*>* DeleteStmt::Execute() 
+{ 
+	cout << "Delete Stmt: BEGIN\n";
+	StorageManagerWrapper::ExecuteDeleteTuples(table_name->GetName(), condition);
+	//cout << "\nEND\n";
+	cout << "\n======END=====\n";
+
 	return NULL;
 }
 
 List<TUPLE*>* DropTableStmt::Execute()
 {
+	cout << "Droptable Stmt: BEGIN\n";
 	StorageManagerWrapper::DropTable(table_name->GetName());
+	cout << "\n======END=====\n";
 	return NULL;
 }
 
 List<TUPLE *> * InsertStmt::Execute()
 {
+	cout << "Insert Stmt: BEGIN\n";
 	List<string> column_names;
 	List<Constant*> column_values;
 
@@ -112,6 +127,7 @@ List<TUPLE *> * InsertStmt::Execute()
 		 column_names.Append(columns->Nth(i)->GetName());
 
 	StorageManagerWrapper::InsertTuple(table_name->GetName(),&column_names,values->GetValueList());
+	cout << "\n======END=====\n";
 	return NULL;
 }
 
@@ -127,6 +143,7 @@ List<TUPLE*>* SelectStmt::Execute()
 		//return StorageManagerWrapper::SimpleSelect(table_names, fields, condition, distinct); 
 	}
 	*/
+	cout << "Select Stmt: BEGIN\n";
 	if(table_names->NumElements()== 1)
 	{
 		return StorageManagerWrapper::ExecuteSingleTableSelect(table_names->Nth(0)->GetName(), columns, condition, distinct, orderBy);
@@ -143,6 +160,7 @@ List<TUPLE*>* SelectStmt::Execute()
 		return StorageManagerWrapper::ExecuteMultipleTableSelect(table_names, columns, condition, distinct, orderBy);
     	//StorageManagerWrapper::ExecuteSelect(lqp); 
 	}
+	cout << "\n======END=====\n";
 	return NULL;
 }
 

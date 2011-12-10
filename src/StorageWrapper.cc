@@ -1,6 +1,7 @@
 #include "StorageWrapper.h"
 #include "ast.h"
 #include <algorithm>
+#include <sstream>
 
 using namespace std;
 
@@ -22,6 +23,8 @@ vector<Tuple>* MergeSortedSublists(vector<Relation*> *sublists,
 		vector<Tuple>* merged);
 
 void PrintRelation(Relation* r, Block* block);
+void cross_join(vector<string> *relations, SchemaManager &schema_manager, MainMemory &mem, 
+		std::map<string,std::vector<string> > &attributes_to_project,map<string,vector<string> > &relationFieldMap) ;
 
 StorageManagerWrapper::StorageManagerWrapper()
 	:schema_manager(&mem, &disk)
@@ -192,6 +195,29 @@ std::set<string>* GetRequiredFields(SchemaManager schema_manager,
 
 	//cout << "Table: " << tableName << endl;
 	//PrintSet(result);
+	return result;
+}
+
+// TUPLE is List<Constant*>
+List<TUPLE*>* ConvertVectorToTUPLE(vector<Tuple> &input, Schema& schema)
+{
+	vector<FIELD_TYPE> ft = schema.getFieldTypes();
+	List<TUPLE*>* result = new List<TUPLE*>;
+	for (int i = 0; i < input.size(); i++)
+	{
+		TUPLE* tup = new TUPLE;
+		Tuple input_tuple = input[i];
+		for (int j = 0; j < input_tuple.getNumOfFields(); j++)
+		{
+			Constant* field = NULL;
+			if (ft[j] == INT)
+				field = new IntConstant(input_tuple.getField(j).integer);
+			else 
+				field = new StringConstant(*(input_tuple.getField(j).str));
+			tup->Append(field);
+		}
+		result->Append(tup);
+	}
 	return result;
 }
 
@@ -374,10 +400,13 @@ List<TUPLE*>* StorageManagerWrapper::_ExecuteSingleTableSelect(
 			//PrintRelation(sublists[i], mem.getBlock(0));
 			schema_manager.deleteRelation(sl_names[i]);
 		}
-		
 	}
+
+	List<TUPLE*>* returnVal = NULL; 
+	if (!condition && !orderBy && !distinct && numPasses == 1)
+		returnVal = ConvertVectorToTUPLE(resultTuples, rSchema);
 	_print_tuples(attrNames, resultTuples);
-	return NULL;
+	return returnVal;
 }
 
 void PrintSet(std::set<string>* inp)
@@ -546,6 +575,37 @@ void GetNaturalJoinSchema(
 	}
 }
 
+#if 0
+void GetCrossJoinSchema(
+		//SchemaManager schema_manager,
+		List<EntityName*> *tableNames,
+		vector<Relation*> &relationPtrs,
+		//const List<ColumnName*>* columnNames,
+		//string except, // omit join attribute
+		//Schema& resultSchema)
+		vector<string>& result_fn,
+		vector<FIELD_TYPE>& result_ft)
+{
+	// now add other fields
+	//string tbnames[] = { "_tb1", "_tb2", "_tb3", "_tb4" };
+	for(int i = 0; i < relationPtrs.size(); ++i)
+	{
+		vector<string> fn = relationPtrs[i]->getSchema().getFieldNames();
+		vector<FIELD_TYPE> ft = relationPtrs[i]->getSchema().getFieldTypes();
+		for(int j = 0; j < fn.size(); ++j)
+		{
+			//if (fn[j] != except)
+			{
+				string fname = tableNames->Nth(i)->GetName(); fname.append("."); fname.append(fn[j]);
+				//result_fn.push_back(fn[j].append(tableNames->Nth(i)->GetName()));
+				result_fn.push_back(fname);
+				result_ft.push_back(ft[j]);
+			}
+		}
+	}
+}
+#endif 
+
 void DeleteSortedSublists(string tableName, vector<Relation*> *sl, SchemaManager &schema_manager)
 {
 	char slname[100];
@@ -587,6 +647,27 @@ List<TUPLE*>* StorageManagerWrapper::_ExecuteMultipleTableSelect(List<EntityName
 		}
 		Assert(rel);
 		relationPtrs.push_back(rel);
+	}
+
+	// is it a cross join?
+	if (!condition && !distinct && !orderBy)
+	{
+	//	return CrossJoin(relationNames, relationPtrs);
+		vector<string> relations;
+		map<string,vector<string> > relationFieldMap;
+		for (int i = 0; i < relationNames->NumElements(); i ++)
+		{
+			string relationName = relationNames->Nth(i)->GetName();
+			relations.push_back(relationName);
+			Relation* rel = schema_manager.getRelation(relationName);
+			Schema schema = rel->getSchema();
+			//relationFieldMap.insert(pair<string, vector<string> >(relations->(i), schema.getFieldNames()));
+			relationFieldMap.insert(pair<string,vector<string> >(relationName,schema.getFieldNames()));
+		}	
+
+		map<string, vector<string> > attrToProject = relationFieldMap;
+		cross_join(&relations, schema_manager, mem, attrToProject, relationFieldMap);
+		return NULL;
 	}
 
 	// Try to find out how many fields are required from each relation. So that we can do projection when scanning 
@@ -1163,80 +1244,6 @@ vector<Relation*> *StorageManagerWrapper::CreateSortedSublists(string tableName,
 	return result;
 }
 
-/*
-void StorageManagerWrapper::CrossJoin(const vector<Relation*> relationPtrs,
-		bool distinct,ColumnName* orderBy)
-{
-
-}
-*/
-/*
-void TwoPassSelect()
-{
-// Global Var: Set the sequence of tables. Used for WHERE
-	while(tableList.NumElements())
-		tableList.RemoveAt(0);
-	tableList.Append(relationName);
-
-	Block* block = mem.getBlock(0);
-	
-	vector<Tuple> tuples_block;
-	vector<Tuple> tuples;
-	if (numPasses == 1)
-	{
-		cout <<"One Pass Algorithm"<<endl;
-
-	for (int i = 0; i != numBlocks; i++) 
-	{
-		block->clear();
-		relationPtr->getBlock(i, 0);
-		tuples_block = block->getTuples();
-		//List<Tuple*> tupleList;
-		for (vector<Tuple>::iterator lit = tuples_block.begin(); lit != tuples_block.end(); lit++) 
-		{	
-			tupleList.Append(&*lit);
-			//_SetCurrenttuples(&tupleList);
-			Constant* result = NULL;
-			bool print = true;
-			if (condition)
-				print = condition->Evaluate(this)->GetBoolValue();
-
-			if (print)
-			{
-
-				tuples.push_back(*lit);
-			
-/\*				for (vector<string>::iterator iter = attrName.begin(); iter != attrName.end(); iter++) 
-				{
-					if (schema.getFieldType(*iter) == STR20)
-						cout << *(lit->getField(schema.getFieldOffset(*iter)).str) << "\t";
-					else if (schema.getFieldType(*iter) == INT)
-						cout << lit->getField(schema.getFieldOffset(*iter)).integer << "\t";
-				}
-				cout << endl; *\/
-			}
-			tupleList.RemoveAt(tupleList.NumElements()-1);
-		}
-	
-	}
-	if(orderBy)
-	{
-	//	OrderByOnePass(tuples,orderBy->GetColumnName());
-		OrderByTwoPass(relationName,orderBy->GetColumnName(),attrName );
-	}
-	if(distinct)
-	{
-		DistinctTwoPass(relationName,attrName);
-
-//		DistinctOnePass(tuples,attrName);
-	}
-	//_print_tuples(attrName,tuples);TEMPERORY
-	
-}
-
-}
-*/
-
 void StorageManagerWrapper::DistinctOnePass(vector<Tuple>& tuples,const vector<string> &attrName)
 {
 	Schema schema = tuples[0].getSchema();
@@ -1601,6 +1608,11 @@ void StorageManagerWrapper::OrderByTwoPass(const string relationName,
 void StorageManagerWrapper::_print_tuples(const vector<string> &attrName, const vector<Tuple> & tuples )
 {
 	cout << endl;
+	if (tuples.size() == 0)
+	{
+		cout << "Empty Output" << endl;
+		return;
+	}
 	for (int i = 0; i < attrName.size(); i++)
 		cout << attrName[i] << " | ";
 	cout << endl;
@@ -1799,14 +1811,302 @@ void appendTupleToRelation(Relation* relation_ptr,
 	}  
 }
 
-/*
-List<TUPLE*>* StorageManagerWrapper::CrossJoin(
-		List<EntityName*> *relationNames,
-		const List <ColumnName*>* columns,
-		Expr* condition,
-		bool distinct,
-		ColumnName* orderBy)
+Schema* MergeSchemas(const Schema& s1, const Schema& s2)
 {
+	vector<string> fn1 = s1.getFieldNames();
+	vector<string> fn2 = s2.getFieldNames();
+	
+	vector<FIELD_TYPE> ft1 = s1.getFieldTypes();
+	vector<FIELD_TYPE> ft2 = s2.getFieldTypes();
 
+	vector<string> fn3 = fn1;
+	vector<FIELD_TYPE> ft3 = ft1;
+
+	fn3.insert(fn3.end(), fn2.begin(), fn2.end());
+	ft3.insert(ft3.end(), ft2.begin(), ft2.end());
+	return new Schema(fn3, ft3);
 }
-*/
+
+List<TUPLE*>* StorageManagerWrapper::CrossJoin(
+		List<EntityName*>* tableNames,
+		vector<Relation*> &relationPtrs)
+{
+	//vector<Relation*> relationPtrs;
+	//vector<Relation*> sortedRelationPtrs;
+
+	// implementing just one pass algorithm for cross join
+	// meaning, out of N relations, N-1 should fit in memory (M-1) combinely.
+	// Remaining one block can be used to load last relation and perform product
+	// 1. pick the largest one. Do remaining joins in memory 
+	// 2. load each block from the largest relation and join it with the other result.
+
+	/*vcvs
+	int totalBlocksReq = 0;
+	for (int i = 0; i < relationPtrs.size(); i++)
+	{
+		cout << relationPtrs[i]->getNumOfBlocks() << " "; 
+		totalBlocksReq += relationPtrs[i]->getNumOfBlocks();
+	}
+	cout << endl;
+
+	vector<Relation*>::iterator largestRel = relationPtrs.begin();
+	vector<Relation*>::iterator iter = largestRel;
+	iter++;
+	for (; iter != relationPtrs.end(); iter++)
+	{
+		if ((*largestRel)->getNumOfBlocks() < (*iter)->getNumOfBlocks())
+		{
+			largestRel = iter;
+		}
+	}
+	int largestSize = (*largestRel)->getNumOfBlocks();
+
+	cout << "Total: " << totalBlocksReq << ", Largest Relation size: " << largestSize << endl;
+	if (totalBlocksReq - largestSize > mem.getMemorySize())
+	{
+		cout << "Two pass Cross Join not implemented.. Returning." << endl;
+		return NULL;
+	}
+	
+	string jName = tableNames->Nth(0)->GetName();
+	for (int i = 1; i < tableNames->NumElements(); i++)
+	{
+		jName.append("_");
+		jName.append(tableNames->Nth(i)->GetName());
+	}
+
+	vector<string> fnames;
+	vector<FIELD_TYPE> ftypes;
+	GetCrossJoinSchema(tableNames, relationPtrs, fnames, ftypes);
+	Schema jSchema = Schema(fnames, ftypes);
+	Relation* jRelation = schema_manager.createRelation(jName, jSchema); 
+	if (!jRelation)
+		return NULL;
+
+	// find all the relations that can be kept inside main memory
+	vector<Relation*> inMemRelations;
+	iter = relationPtr.begin();
+	for (; iter != relationPtr.end(); iter++)
+	{
+		if (iter != largestRel)
+			inMemRelations.push_back(*iter);
+	}
+	vcvs*/
+	/*
+	// load them into memory and perform join and join the result with the one still in disk
+	for (int i = 0; i < inMemRelations.size()-1; i++)
+	{
+		Schema *schema3 = MergeSchemas(schema1, schema2);
+		 
+	}
+	vector<Tuple>  
+	*/
+
+
+
+	/*
+	for (int i = 0; i < relationPtrs.size(); i++)
+	{
+	//	minRelation* = relationPtrs;
+		vector<Relation*>::iterator iter = relationPtrs.begin();
+		vector<Relation*>::iterator iter = relationPtrs.begin();
+
+		for ( j = 1; j < relationPtrs.size(); i++)
+		{
+			if (min > relationPtrs[j]->getNumOfBlocks())
+			{
+				min = relationPtrs[j]->getNumOfBlocks();
+				index = j;
+			}
+		}
+		sortedRelationPtrs.push_back(relationPtrs[index]);
+		relationPtrs.
+	}
+	*/
+	return NULL;
+}
+
+void print_result_tuple(string &res)
+{
+	cout << res << endl;
+}
+
+void print_result_tuple(Tuple t){
+	t.printTuple();
+	std::cout<<std::endl;
+	return;
+	
+}
+
+void process_tuple(std::vector<string> attributes,Tuple t, Schema *schema, string &res_tuple, vector<string> relationFieldMap)
+{
+	if (attributes.size()==0) {
+		for(int j=0; j<relationFieldMap.size();j++) {
+			int pos = schema->getFieldOffset(relationFieldMap[j]);
+			if (schema->getFieldType(relationFieldMap[j]) == INT) {
+				std::stringstream out;
+				out << t.getField(pos).integer;
+				res_tuple.append(out.str());
+				res_tuple.append("\t");
+			} else if (schema->getFieldType(relationFieldMap[j])== STR20) {
+				res_tuple.append(*(t.getField(pos).str));
+				res_tuple.append("\t");							
+			}
+		}
+		return;
+	}
+	for(int j=0; j<attributes.size();j++) {
+		int pos = schema->getFieldOffset(attributes[j]);
+		if (schema->getFieldType(attributes[j]) == INT) {
+			std::stringstream out;
+			out << t.getField(pos).integer;
+			res_tuple.append(out.str());
+			res_tuple.append("\t");
+		} else if (schema->getFieldType(attributes[j]) == STR20) {
+			res_tuple.append(*(t.getField(pos).str));
+			res_tuple.append("\t");							
+		}
+	}
+	return;
+}
+
+void print_cross_join(deque<string> relations_to_print, SchemaManager &schema_manager, MainMemory &mem,
+								std::map<string,std::vector<string> > &attributes_to_project, string &res_tuple, 
+								int memindex, bool last_in_mem, map<string,vector<string> > relationFieldMap)
+{
+	string print_relation(relations_to_print.front());
+	relations_to_print.pop_front();
+	Relation* relationPtr = schema_manager.getRelation(print_relation);
+	Schema schema = schema_manager.getSchema(print_relation);
+	vector<string> attributes = attributes_to_project[relationPtr->getRelationName()];
+	if (relations_to_print.size()==0) {
+		if(relationPtr->getNumOfBlocks()==0){
+			print_result_tuple(res_tuple);
+		}
+		if(last_in_mem) {
+			vector<Tuple> tuples = mem.getTuples(memindex,relationPtr->getNumOfBlocks());
+			if(attributes.size()!=0) {
+				for(int i=0;i<tuples.size();i++) {
+					Tuple t = tuples[i];
+					process_tuple(attributes,t,&schema, res_tuple,relationFieldMap[print_relation]);
+					print_result_tuple(res_tuple);
+				}				
+			}
+			else {
+				for(int i=0;i<tuples.size();i++) {
+					Tuple t = tuples[i];
+					cout<<res_tuple<<"\t";
+					print_result_tuple(t);
+				}	
+			}
+		}
+		else{
+			for(int i=0; i<relationPtr->getNumOfBlocks();i++){
+					relationPtr->getBlock(i,memindex);
+					Block *b = mem.getBlock(memindex);
+					vector<Tuple> tuples = b->getTuples();
+					if(attributes.size()!=0) {
+						for(int j=0; j<tuples.size();j++){
+							Tuple t = tuples[j];
+							string temp = res_tuple;
+							process_tuple(attributes,t,&schema, temp,relationFieldMap[print_relation]);
+							print_result_tuple(temp);
+						}
+					}
+					else{
+						for(int i=0;i<tuples.size();i++) {
+							Tuple t = tuples[i];
+							cout<<res_tuple<<"\t";
+							print_result_tuple(t);
+						}
+					}
+			}
+		}					
+	}
+	else {
+		for(int i=0; i<relationPtr->getNumOfBlocks();i++){
+			relationPtr->getBlock(i,memindex);
+			Block *b = mem.getBlock(memindex);
+			vector<Tuple> tuples = b->getTuples();
+
+			if(attributes.size()!=0) {
+				for(int j=0; j<tuples.size();j++){
+					Tuple t = tuples[j];
+					string temp = res_tuple;
+					process_tuple(attributes,t,&schema, temp, relationFieldMap[print_relation]);
+					print_cross_join(relations_to_print,schema_manager, mem,attributes_to_project, temp, memindex+1, last_in_mem, relationFieldMap);										
+				}
+			}
+			else{
+				for(int i=0;i<tuples.size();i++) {
+					Tuple t = tuples[i];
+					string temp = res_tuple;
+					process_tuple(attributes,t,&schema, temp, relationFieldMap[print_relation]);
+					print_cross_join(relations_to_print,schema_manager, mem,attributes_to_project, temp, memindex+1, last_in_mem, relationFieldMap);												
+				}
+			}
+		}
+	}		
+}
+
+void cross_join(vector<string> *relations, SchemaManager &schema_manager, MainMemory &mem, 
+		std::map<string,std::vector<string> > &attributes_to_project,map<string,vector<string> > &relationFieldMap)
+{
+	for(int i=0; i<relations->size();i++) 
+	{
+		string relation = (*relations)[i]; 
+		if(schema_manager.getSchema(relation).isEmpty()){
+			printf("Table not found\n");
+			return;
+		}
+		if(schema_manager.getRelation(relation)->isNull()){
+			printf("Table not found\n");
+			return;
+		}
+	}
+	deque<string> relations_to_print ;
+	relations_to_print.insert(relations_to_print.begin(),relations->begin(),relations->end());
+	int last_rel_index = relations_to_print.size()-1;
+	bool last_in_mem=false;
+	Relation* relationPtr = schema_manager.getRelation(relations_to_print[last_rel_index]);
+	int last_rel_size = relationPtr->getNumOfBlocks();
+	if (mem.getMemorySize()-last_rel_index>=relationPtr->getNumOfBlocks()){
+		relationPtr->getBlocks(last_rel_index, 0, last_rel_size); 
+		//get_blocks_to_mem(last_rel_index,mem,last_rel_size,relationPtr);
+		last_in_mem = true;
+	}	
+	string s("");
+	print_cross_join(relations_to_print,schema_manager,mem,attributes_to_project,s,0,last_in_mem,relationFieldMap);
+	return;
+}
+
+void StorageManagerWrapper::_ExecuteDeleteTuples(string tableName, Expr* condition)
+{
+	Relation* relation = schema_manager.getRelation(tableName);
+	if (!condition)
+	{
+		relation->deleteBlocks(0);
+		return;
+	}
+	while(tableList.NumElements())
+		tableList.RemoveAt(0);
+	tableList.Append(tableName);
+
+	// if there is a condition.. fully read all the blocks, delete tuples.. write them back. To avoid holes, rearrange
+	vector<Tuple> contents;
+	LoadRelation(relation, contents, false);
+	vector<Tuple> postDeletion;
+	for (int i = 0; i < contents.size(); i++)
+	{
+		tupleList.Append(&(contents[i]));
+		bool del = false;
+		del = condition->Evaluate(this)->GetBoolValue();
+
+		if (! del)
+			postDeletion.push_back(contents[i]);
+				
+		tupleList.RemoveAt(tupleList.NumElements()-1);
+	}
+	relation->deleteBlocks(0);
+	StoreRelation(relation, postDeletion); 	
+}

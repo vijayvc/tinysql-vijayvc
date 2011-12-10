@@ -283,6 +283,7 @@ public:
 	{
 	}
 	virtual void Print(int indentLevel);
+	List<TUPLE *>* Execute();
 };
 
 class EntityName: public Node

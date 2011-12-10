@@ -64,6 +64,7 @@ protected:
 			const vector<string> &attrName,
 			vector<Tuple> &distinctTuples);
 
+	void _ExecuteDeleteTuples(string tableName, Expr* condition);
 	int OutputBufferIndex()
 	{
 		//Assert(mem->getMemorySize());
@@ -127,6 +128,11 @@ public:
 			return instance->_ExecuteMultipleTableSelect(table_names,columns, condition,distinct, orderBy);
 		return NULL;
 	}
+	static void ExecuteDeleteTuples(string tableName, Expr* condition)
+	{
+		if(instance)
+			instance->_ExecuteDeleteTuples(tableName, condition);
+	}
 	/*
 	static void SimpleSelect (const string table_name,
 							  const List<string>* columns,
@@ -166,6 +172,10 @@ public:
 	vector<Tuple>* MergeSortedSublists(vector<Relation*> *sublists, 
 		string joinAttr,
 		vector<Tuple>* merged);
+
+	List<TUPLE*>* CrossJoin(
+		List<EntityName*>* tableNames,
+		vector<Relation*> &relationPtrs);
 
 };
 #endif //__STOREGE_WRAPPER__
