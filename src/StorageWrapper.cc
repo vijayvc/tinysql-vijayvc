@@ -1575,7 +1575,7 @@ void StorageManagerWrapper::OrderByTwoPass(const string relationName,
 			for (sit=my_smap.begin(); sit != my_smap.end(); ++sit) {
 				tempStorage.push_back(sit->second);
 				// resultTuples.push_back(sit->second);
-				appendTupleToRelation(tmpRelationPtr ,mem,OutputBufferIndex(),sit->second);
+				//appendTupleToRelation(tmpRelationPtr ,mem,OutputBufferIndex(),sit->second);
 			}
 			StoreRelation(tmpRelationPtr, tempStorage);
 		}
